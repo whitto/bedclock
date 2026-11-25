@@ -6,7 +6,7 @@ Install and open Bedside Clock using the [installation instructions](README.md#i
 
 - **Start at boot.** In Android Settings, open **Apps & notifications → Default apps → Home app** and select **Bedside Clock**. Home now opens the clock. Select the original launcher here to restore it.
 - **Keep the full clock visible overnight.** In the app, turn on **Device → Keep screen awake**. The app can still dim the display using its own brightness settings.
-- **Use the dim screensaver.** In Android’s **Display → Screen saver** settings, select **Bedside Clock** and choose when it should start. Turn off **Keep screen awake** to let the idle timer run on the clock face. The screensaver displays time and optional date. Wake the screen to use weather or settings.
+- **Use the clock as the screensaver.** In Android’s **Display → Screen saver** settings, select **Bedside Clock** and choose when it should start. Turn off **Keep screen awake** to let the idle timer run on the clock face. With Display over other apps enabled, the screensaver opens the full interactive clock face. Without that permission it displays time and optional date.
 - **Lock screen.** The clock can appear over the Android lock screen. Android continues to manage unlocking.
 - **Leave the clock.** Enable **Device → Double-tap clock to exit**, then double-tap the clock face. On the supported LineageOS launcher, this opens the regular home screen when Bedside Clock is the default.
 
@@ -40,6 +40,6 @@ Tap the temperature or the surrounding upper-left corner to see the rest of toda
 
 ## Spotify
 
-Install Spotify and sign in on the Echo. When Bedside Clock starts as the Home app, it connects to Spotify’s media browser service to load the player in the background. Android manages how long the process stays in memory. Tap the green Spotify icon beside Settings to open the player. You can browse before starting a track. After playback has started, a pause or stop lasting five seconds returns you to the clock. Home also returns you immediately.
+Install Spotify and sign in on the Echo. When Bedside Clock starts as the Home app, it connects to Spotify’s media browser service to load the player in the background. Android manages how long the process stays in memory. Tap the green Spotify icon beside Settings to open the player. Allow **Display over other apps** for Bedside Clock when prompted, then tap Spotify again. This allows the automatic return on LineageOS. **Just open Spotify** opens the player without automatic return. You can browse before starting a track. After playback has started, a pause or stop lasting five seconds returns you to the clock. Home also returns you immediately.
 
 On Spotify versions that restrict access to the media session, the clock uses local music playback activity. Audio from another app can affect the return timing, and playback on a different Spotify Connect device may not register as local music.

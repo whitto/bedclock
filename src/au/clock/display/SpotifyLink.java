@@ -54,7 +54,19 @@ final class SpotifyLink {
             Toast.makeText(clock, "Spotify is not installed", Toast.LENGTH_SHORT).show();
             return;
         }
+        if (!android.provider.Settings.canDrawOverlays(clock)) {
+            new android.app.AlertDialog.Builder(clock)
+                    .setTitle("Return to clock after Spotify")
+                    .setMessage("Allow Bedside Clock to display over other apps so it can return after playback stops.")
+                    .setPositiveButton("Open settings", (dialog, which) -> clock.startActivity(new Intent(
+                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            android.net.Uri.parse("package:" + clock.getPackageName()))))
+                    .setNegativeButton("Just open Spotify", (dialog, which) -> clock.startActivity(player))
+                    .show();
+            return;
+        }
         watching = true;
+        if (!playbackScreen.isHeld()) playbackScreen.acquire();
         played = false;
         idleSince = 0;
         player.setFlags(player.getFlags() & ~(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED));
@@ -74,10 +86,7 @@ final class SpotifyLink {
                 AudioManager audio = (AudioManager) clock.getSystemService(Context.AUDIO_SERVICE);
                 playing = audio.isMusicActive();
             }
-            if (playing) {
-                played = true;
-                if (!playbackScreen.isHeld()) playbackScreen.acquire();
-            }
+            if (playing) played = true;
             if (playing || code == PlaybackState.STATE_BUFFERING || code == PlaybackState.STATE_CONNECTING
                     || code == PlaybackState.STATE_SKIPPING_TO_NEXT || code == PlaybackState.STATE_SKIPPING_TO_PREVIOUS) {
                 idleSince = 0;
@@ -85,11 +94,11 @@ final class SpotifyLink {
                 long now = SystemClock.elapsedRealtime();
                 if (idleSince == 0) idleSince = now;
                 if (now - idleSince >= 5000) {
-                    stopWatching();
                     Intent home = new Intent(clock, ClockActivity.class)
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
                                     | Intent.FLAG_ACTIVITY_SINGLE_TOP);
                     clock.startActivity(home);
+                    stopWatching();
                     return;
                 }
             }

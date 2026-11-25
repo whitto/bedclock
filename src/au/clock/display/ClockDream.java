@@ -33,6 +33,17 @@ public final class ClockDream extends DreamService {
         setContentView(face);
     }
 
+    @Override public void onDreamingStarted() {
+        super.onDreamingStarted();
+        if (!android.provider.Settings.canDrawOverlays(this)) return;
+        android.content.Intent clock = new android.content.Intent(this, ClockActivity.class)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                        | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        wakeUp();
+        startActivity(clock);
+    }
+
     private TextClock clock(String pattern, int size) {
         TextClock clock = new TextClock(this);
         clock.setFormat12Hour(pattern);
