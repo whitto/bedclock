@@ -43,3 +43,9 @@ Tap the temperature or the surrounding upper-left corner to see the rest of toda
 Install Spotify and sign in on the Echo. When Bedside Clock starts as the Home app, it connects to Spotify’s media browser service to load the player in the background. Android manages how long the process stays in memory. Tap the green Spotify icon beside Settings to open the player. Allow **Display over other apps** for Bedside Clock when prompted, then tap Spotify again. This allows the automatic return on LineageOS. **Just open Spotify** opens the player without automatic return. You can browse before starting a track. After playback has started, a pause or stop lasting five seconds returns you to the clock. Home also returns you immediately.
 
 On Spotify versions that restrict access to the media session, the clock uses local music playback activity. Audio from another app can affect the return timing, and playback on a different Spotify Connect device may not register as local music.
+
+## Bedside lamps
+
+Tap the amber house beside Spotify to open the full-screen lamp panel. Each of the two cards shows the current power state and brightness. Tap the power button to switch a lamp on or off. Drag its dimmer and release to apply a brightness level. Setting it to 0% switches that lamp off. Tap × to return to the clock.
+
+On a new installation, open the connection gear in the lamp panel, enter your Home Assistant server URL and a long-lived access token from your Home Assistant profile, then save. The panel looks for dimmable light entities named **Lamp Craig** and **Lamp Kristen**. If a lamp is unavailable, check its exact friendly name and state in Home Assistant.

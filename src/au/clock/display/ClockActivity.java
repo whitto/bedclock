@@ -126,6 +126,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
     private TextView date;
     private TextView temperature;
     private SpotifyLink spotify;
+    private BedsideLights bedsideLights;
     private ImageButton settingsButton;
     private ImageButton alarmBell;
     private AlertDialog ringingDialog;
@@ -171,6 +172,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
         sensors = getSystemService(SensorManager.class);
         lightSensor = sensors == null ? null : sensors.getDefaultSensor(Sensor.TYPE_LIGHT);
         getSystemService(ConnectivityManager.class).registerDefaultNetworkCallback(wifiChanges, handler);
+        bedsideLights = new BedsideLights(this);
         spotify = new SpotifyLink(this);
         spotify.connect();
         buildClock();
@@ -248,6 +250,17 @@ public final class ClockActivity extends Activity implements SensorEventListener
         } catch (android.content.pm.PackageManager.NameNotFoundException absent) {
             // Devices without Spotify display just the settings gear.
         }
+
+        ImageButton homeAssistant = new ImageButton(this);
+        homeAssistant.setImageResource(R.drawable.bedside_home);
+        homeAssistant.setScaleType(android.widget.ImageView.ScaleType.CENTER);
+        homeAssistant.setContentDescription("Home Assistant lamps");
+        homeAssistant.setBackgroundColor(Color.TRANSPARENT);
+        homeAssistant.setPadding(0, 0, 0, 0);
+        FrameLayout.LayoutParams lampSlot = new FrameLayout.LayoutParams(dp(44), dp(44), Gravity.BOTTOM | Gravity.RIGHT);
+        lampSlot.setMargins(0, 0, dp(108), dp(10));
+        root.addView(homeAssistant, lampSlot);
+        homeAssistant.setOnClickListener(view -> bedsideLights.open());
 
         GestureDetector gestures = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override public boolean onDown(MotionEvent event) { return true; }
@@ -531,6 +544,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
         clearWeatherWifi();
         handler.removeCallbacks(dismissForecast);
         spotify.close();
+        bedsideLights.close();
         network.shutdownNow();
         super.onDestroy();
     }
