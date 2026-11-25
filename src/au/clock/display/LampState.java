@@ -8,13 +8,15 @@ final class LampState {
     private static final long[] RETRY_DELAYS_MS = {0, 250, 450, 700, 1000};
 
     final String id;
+    final String name;
     final boolean available;
     final boolean on;
     final int level;
     final boolean dimmable;
 
-    LampState(String id, String state, int brightness, boolean dimmable) {
+    LampState(String id, String name, String state, int brightness, boolean dimmable) {
         this.id = id;
+        this.name = name;
         this.on = "on".equals(state);
         this.available = on || "off".equals(state);
         this.level = !available ? -1 : !on ? 0

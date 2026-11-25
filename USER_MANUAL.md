@@ -46,6 +46,8 @@ On Spotify versions that restrict access to the media session, the clock uses lo
 
 ## Bedside lamps
 
-Tap the amber house beside Spotify to open the full-screen lamp panel. Each of the two cards shows the current power state and brightness. Tap the power button to switch a lamp on or off. Drag its dimmer and release to apply a brightness level. Setting it to 0% switches that lamp off. Tap × to return to the clock.
+Tap the amber house beside Spotify to open Bedside lamps. Tap the gear to open **Devices to control**. On a new installation, choose **Connection**, enter your Home Assistant server URL and long-lived access token, then save.
 
-On a new installation, open the connection gear in the lamp panel, enter your Home Assistant server URL and a long-lived access token from your Home Assistant profile, then save. The panel looks for dimmable light entities named **Lamp Craig** and **Lamp Kristen**. If a lamp is unavailable, check its exact friendly name and state in Home Assistant.
+Choose **Add control** and search by name. Select a light, switch, toggle helper or **Turn all lights off**, then tap **Save**. Use **Change** to replace a card or **Remove** to take it off the panel. Saving edits the panel without operating any devices. Up to three cards fit across the screen. Scroll down for more.
+
+Tap a device’s power button to toggle it. Dimmable lights also have a brightness slider. The **Turn all lights off** card sends an off command to all Home Assistant lights. Tap × to return to the clock.

@@ -1,5 +1,11 @@
 # Bedside Clock work to date
 
+## 5.0.14
+
+Android version code **46**. The Home Assistant panel now supports a saved list of lights, switches, toggle helpers and a whole-house lights-off action. The full-screen settings page supports search, add, change and remove. Existing lamp selections carry forward.
+
+Verified the two- and three-card layouts on the Echo by adding and removing the all-lights-off card. The test restored the original two lamps and did not operate any devices.
+
 ## 5.0.11
 
 - Weather sync begins when Android confirms internet access over Wi-Fi, or after three seconds on a stable Wi-Fi connection. While waiting for the first PanTech reading, the clock retries after five seconds and caps the retry wait at ten seconds. After a successful reading, normal one-minute station checks resume.
@@ -13,7 +19,7 @@
 - Lamp controls refresh power and brightness while open and check the reported state after a change.
 - Installed and checked the picker and bedside lamps screen on a second-generation Echo Show 5.
 
-## Current release
+## 5.0.4 settings redesign
 
 Version **5.0.4** (Android version code **36**) uses application ID `au.clock.display`.
 

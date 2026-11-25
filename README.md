@@ -2,7 +2,7 @@
 
 Bedside Clock turns an Echo Show 5 running LineageOS into a landscape bedside display. It includes digital and flip faces, adjustable night brightness, a one-shot alarm, local weather station readings and a forecast for the rest of today and the next three days. It can also serve as Android's Home app or screensaver.
 
-**Version 5.0.11** refreshes weather promptly after Wi-Fi connects and retries the local PanTech station more frequently until a reading arrives. The clock can also open Spotify once per reboot so the Echo is ready for Spotify Connect.
+**Version 5.0.14** lets you choose which Home Assistant controls appear on the Echo. Add lights, switches, toggle helpers or a whole-house lights-off action. The panel shows one card per selection.
 
 See the [user manual](USER_MANUAL.md) for setup and daily use, and the [release notes](worktodate.md) for changes and verification status.
 
