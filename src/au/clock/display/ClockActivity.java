@@ -133,6 +133,9 @@ public final class ClockActivity extends Activity implements SensorEventListener
     private boolean stoppingWithVolumeKey;
     private LinearLayout settings;
     private ScrollView settingsContent;
+    private LinearLayout settingsBody;
+    private TextView settingsTitle;
+    private Runnable settingsPreview;
     private final Button[] settingsTabs = new Button[SETTINGS_TABS.length];
     private int settingsTab;
     private SensorManager sensors;
@@ -231,8 +234,8 @@ public final class ClockActivity extends Activity implements SensorEventListener
         settingsButton.setContentDescription("Settings");
         settingsButton.setBackgroundColor(Color.TRANSPARENT);
         settingsButton.setScaleType(android.widget.ImageView.ScaleType.CENTER);
-        FrameLayout.LayoutParams bottom = new FrameLayout.LayoutParams(dp(44), dp(44), Gravity.BOTTOM | Gravity.RIGHT);
-        bottom.setMargins(0, 0, dp(12), dp(10));
+        FrameLayout.LayoutParams bottom = new FrameLayout.LayoutParams(dp(44), dp(44), Gravity.BOTTOM | Gravity.LEFT);
+        bottom.setMargins(dp(12), 0, 0, dp(10));
         root.addView(settingsButton, bottom);
         settingsButton.setOnClickListener(view -> openSettings());
 
@@ -298,6 +301,9 @@ public final class ClockActivity extends Activity implements SensorEventListener
             root.removeView(settings);
             settings = null;
             settingsContent = null;
+            settingsBody = null;
+            settingsTitle = null;
+            settingsPreview = null;
             java.util.Arrays.fill(settingsTabs, null);
         }
         int background = preferences.getInt("background", 0);
@@ -305,12 +311,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
         boolean bright = background == 2 && android.graphics.Color.luminance(solid) > .179;
         int foreground = bright ? 0xff151421 : 0xfff6f3ff;
         int secondary = bright ? 0xff302c42 : 0xffe1d8f2;
-        if (background == 0) {
-            root.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    new int[] {0xff354557, 0xff241d36, 0xff33263e}));
-        } else {
-            root.setBackgroundColor(background == 1 ? Color.BLACK : solid);
-        }
+        root.setBackground(clockBackground(background, solid));
         clockForeground = foreground;
         clockSecondary = secondary;
         date.setTextColor(secondary);
@@ -806,43 +807,55 @@ public final class ClockActivity extends Activity implements SensorEventListener
     private void openSettings() {
         if (settings != null) return;
         settings = column();
+        boolean landscapeLayout = getResources().getConfiguration().screenWidthDp >= 600;
+        settings.setOrientation(landscapeLayout ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
         settings.setBackgroundColor(SETTINGS_BACKGROUND);
         settings.setElevation(dp(8));
         settings.setFocusableInTouchMode(true);
         root.addView(settings, new FrameLayout.LayoutParams(-1, -1));
-        LinearLayout header = new LinearLayout(this);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(18), dp(4), dp(14), 0);
-        TextView title = text(22);
-        title.setText("Settings");
-        title.setTextColor(SETTINGS_TEXT);
-        title.setTypeface(null, Typeface.BOLD);
-        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        Button done = button("Done");
-        done.setMinWidth(dp(72));
-        done.setTextColor(0xff171819);
-        done.setBackgroundTintList(ColorStateList.valueOf(0xffd5d6d7));
-        header.addView(done);
-        done.setOnClickListener(view -> showClock());
-        settings.addView(header, new LinearLayout.LayoutParams(-1, -2));
-
         LinearLayout tabs = new LinearLayout(this);
-        tabs.setPadding(dp(10), 0, dp(10), dp(5));
+        tabs.setOrientation(landscapeLayout ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
+        tabs.setBackgroundColor(0xff262729);
+        tabs.setPadding(dp(8), dp(8), dp(8), dp(8));
+        if (landscapeLayout) {
+            TextView navTitle = textLabel("Settings");
+            navTitle.setPadding(dp(9), dp(5), 0, dp(8));
+            tabs.addView(navTitle);
+        }
         for (int index = 0; index < SETTINGS_TABS.length; index++) {
             int page = index;
-            Button tab = button(SETTINGS_TABS[index]);
-            tab.setTextSize(14);
+            Button tab = settingsAction(SETTINGS_TABS[index], 0xff262729);
             tab.setMinWidth(0);
             tab.setMinimumWidth(0);
-            tab.setPadding(dp(3), 0, dp(3), 0);
+            tab.setGravity(landscapeLayout ? Gravity.START | Gravity.CENTER_VERTICAL : Gravity.CENTER);
+            tab.setPadding(dp(landscapeLayout ? 12 : 3), 0, dp(3), 0);
             settingsTabs[index] = tab;
-            tabs.addView(tab, new LinearLayout.LayoutParams(0, dp(44), 1));
+            LinearLayout.LayoutParams tabSlot = landscapeLayout
+                    ? new LinearLayout.LayoutParams(-1, dp(44))
+                    : new LinearLayout.LayoutParams(0, dp(44), 1);
+            if (landscapeLayout) tabSlot.bottomMargin = dp(3);
+            tabs.addView(tab, tabSlot);
             tab.setOnClickListener(view -> showSettingsPage(page));
         }
-        settings.addView(tabs);
-        View separator = new View(this);
-        separator.setBackgroundColor(SETTINGS_BORDER);
-        settings.addView(separator, new LinearLayout.LayoutParams(-1, dp(1)));
+        settings.addView(tabs, new LinearLayout.LayoutParams(landscapeLayout ? dp(140) : -1,
+                landscapeLayout ? -1 : -2));
+        settingsBody = column();
+        settings.addView(settingsBody, landscapeLayout
+                ? new LinearLayout.LayoutParams(0, -1, 1)
+                : new LinearLayout.LayoutParams(-1, 0, 1));
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(16), dp(8), dp(16), dp(3));
+        settingsTitle = text(23);
+        settingsTitle.setTextColor(SETTINGS_TEXT);
+        settingsTitle.setTypeface(null, Typeface.BOLD);
+        header.addView(settingsTitle, new LinearLayout.LayoutParams(0, -2, 1));
+        Button done = settingsAction("Done", 0xffd5d6d7);
+        done.setMinWidth(dp(72));
+        done.setTextColor(0xff171819);
+        header.addView(done, new LinearLayout.LayoutParams(-2, dp(44)));
+        done.setOnClickListener(view -> showClock());
+        settingsBody.addView(header, new LinearLayout.LayoutParams(-1, -2));
         showSettingsPage(0);
         settings.requestFocus();
         updateBrightness();
@@ -851,24 +864,26 @@ public final class ClockActivity extends Activity implements SensorEventListener
 
     private void showSettingsPage(int page) {
         settingsTab = page;
+        settingsTitle.setText(SETTINGS_TABS[page]);
+        settingsPreview = null;
         if (settingsContent != null) {
             android.view.inputmethod.InputMethodManager keyboard = getSystemService(android.view.inputmethod.InputMethodManager.class);
             keyboard.hideSoftInputFromWindow(settingsContent.getWindowToken(), 0);
-            settings.removeView(settingsContent);
+            settingsBody.removeView(settingsContent);
         }
         for (int index = 0; index < settingsTabs.length; index++) {
             Button tab = settingsTabs[index];
             boolean active = index == page;
             tab.setSelected(active);
             tab.setTextColor(active ? SETTINGS_TEXT : SETTINGS_SECONDARY);
-            tab.setBackgroundTintList(ColorStateList.valueOf(active ? 0xff484a4d : SETTINGS_BACKGROUND));
+            tab.setBackground(settingsBackground(active ? 0xff484a4d : 0xff262729));
         }
         settingsContent = new ScrollView(this);
         settingsContent.setFillViewport(true);
         LinearLayout panel = column();
-        panel.setPadding(dp(18), dp(10), dp(18), dp(14));
+        panel.setPadding(dp(16), dp(7), dp(16), dp(14));
         settingsContent.addView(panel);
-        settings.addView(settingsContent, new LinearLayout.LayoutParams(-1, 0, 1));
+        settingsBody.addView(settingsContent, new LinearLayout.LayoutParams(-1, 0, 1));
         switch (page) {
             case 0: clockSettings(panel); break;
             case 1: brightnessSettings(panel); break;
@@ -882,6 +897,39 @@ public final class ClockActivity extends Activity implements SensorEventListener
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         return column;
+    }
+
+    private GradientDrawable rounded(int color, int radius) {
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(color);
+        background.setCornerRadius(dp(radius));
+        return background;
+    }
+
+    private android.graphics.drawable.Drawable settingsBackground(int color) {
+        return new android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(0x33ffffff),
+                rounded(color, 8), null);
+    }
+
+    private Button settingsAction(String label, int color) {
+        Button action = button(label);
+        action.setTextSize(14);
+        action.setMinHeight(dp(44));
+        action.setBackground(settingsBackground(color));
+        return action;
+    }
+
+    private LinearLayout settingsCard() {
+        LinearLayout card = column();
+        card.setBackground(rounded(0xff28292b, 10));
+        card.setPadding(dp(11), dp(7), dp(11), dp(7));
+        return card;
+    }
+
+    private GradientDrawable clockBackground(int background, int solid) {
+        if (background != 0) return rounded(background == 1 ? Color.BLACK : solid, 0);
+        return new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[] {0xff354557, 0xff241d36, 0xff33263e});
     }
 
     private void addSettingsColumns(LinearLayout panel, LinearLayout first, LinearLayout second) {
@@ -904,64 +952,192 @@ public final class ClockActivity extends Activity implements SensorEventListener
     private void clockSettings(LinearLayout panel) {
         LinearLayout faceOptions = column();
         LinearLayout details = column();
-        heading(faceOptions, "Clock face");
-        choice(faceOptions, "Display style", "displayStyle", new String[] {"Digital", "Flip clock"}, 0);
-        choice(faceOptions, "Font", "font", FONT_LABELS, 0);
-        slider(faceOptions, "Size", "size", 65, 120, 100);
+        addClockPreview(faceOptions);
         LinearLayout layoutOptions = new LinearLayout(this);
+        LinearLayout style = column();
         LinearLayout format = column();
-        LinearLayout position = column();
-        layoutOptions.addView(format, new LinearLayout.LayoutParams(0, -2, 1));
-        LinearLayout.LayoutParams positionSpace = new LinearLayout.LayoutParams(0, -2, 1);
-        positionSpace.setMarginStart(dp(8));
-        layoutOptions.addView(position, positionSpace);
+        layoutOptions.addView(style, new LinearLayout.LayoutParams(0, -2, 1));
+        LinearLayout.LayoutParams formatSpace = new LinearLayout.LayoutParams(0, -2, 1);
+        formatSpace.setMarginStart(dp(8));
+        layoutOptions.addView(format, formatSpace);
+        choice(style, "Style", "displayStyle", new String[] {"Digital", "Flip clock"}, 0);
         choice(format, "Time format", "timeFormat", new String[] {"Android setting", "12-hour", "24-hour"}, 0);
-        choice(position, "Position", "position", new String[] {"Center", "Lower center", "Lower left"}, 0);
         faceOptions.addView(layoutOptions);
+        slider(faceOptions, "Size", "size", 65, 120, 100);
 
-        heading(details, "Background");
-        Button color = button("Set custom solid color");
+        choice(details, "Font", "font", FONT_LABELS, 0);
+        Button color = settingsAction("Set custom colour", 0xff3b3d40);
         Runnable showCustomColor = () -> color.setVisibility(
                 preferences.getInt("background", 0) == 2 ? View.VISIBLE : View.GONE);
-        choice(details, "Color", "background", new String[] {"Dusk gradient", "Black", "Custom solid"}, 0, showCustomColor);
+        choice(details, "Background", "background", new String[] {"Dusk gradient", "Black", "Custom solid"}, 0, showCustomColor);
         details.addView(color);
         color.setOnClickListener(view -> chooseColor());
         showCustomColor.run();
-        heading(details, "On the clock");
-        toggle(details, "Weekday", "showWeekday", true);
-        toggle(details, "Date", "showDate", true);
-        toggle(details, "Outside temperature", "showTemperature", true);
+        choice(details, "Position", "position", new String[] {"Center", "Lower center", "Lower left"}, 0);
+        Button visible = settingsAction("Show on clock", 0xff3b3d40);
+        LinearLayout visibleOptions = column();
+        visibleOptions.setVisibility(View.GONE);
+        visible.setOnClickListener(view -> {
+            boolean expanded = visibleOptions.getVisibility() == View.VISIBLE;
+            visibleOptions.setVisibility(expanded ? View.GONE : View.VISIBLE);
+            visible.setText(expanded ? "Show on clock" : "Hide display options");
+        });
+        details.addView(visible, new LinearLayout.LayoutParams(-1, dp(44)));
+        toggle(visibleOptions, "Weekday", "showWeekday", true);
+        toggle(visibleOptions, "Date", "showDate", true);
+        toggle(visibleOptions, "Outside temperature", "showTemperature", true);
+        details.addView(visibleOptions);
         addSettingsColumns(panel, faceOptions, details);
     }
 
+    private void addClockPreview(LinearLayout panel) {
+        FrameLayout preview = new FrameLayout(this);
+        preview.setClipToOutline(true);
+        preview.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override public void getOutline(View view, android.graphics.Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), dp(9));
+            }
+        });
+        LinearLayout faceContent = column();
+        faceContent.setGravity(Gravity.CENTER);
+        LinearLayout digits = new LinearLayout(this);
+        digits.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        TextView digital = text(30);
+        digital.setIncludeFontPadding(false);
+        digital.setSingleLine();
+        FlipClockView flips = new FlipClockView(this);
+        TextView suffix = text(10);
+        suffix.setPadding(dp(4), 0, 0, 0);
+        digits.addView(digital);
+        digits.addView(flips);
+        digits.addView(suffix);
+        faceContent.addView(digits);
+        TextView calendar = text(10);
+        faceContent.addView(calendar);
+        preview.addView(faceContent);
+        TextView outside = text(10);
+        FrameLayout.LayoutParams weatherPosition = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.LEFT);
+        weatherPosition.setMargins(dp(7), dp(4), 0, 0);
+        preview.addView(outside, weatherPosition);
+        panel.addView(preview, new LinearLayout.LayoutParams(-1, dp(105)));
+        settingsPreview = () -> {
+            if (preview.getWidth() == 0) return;
+            int background = preferences.getInt("background", 0);
+            int solid = preferences.getInt("solid", 0xff18232d);
+            boolean light = background == 2 && Color.luminance(solid) > .179;
+            int ink = light ? 0xff151421 : 0xfff6f3ff;
+            preview.setBackground(clockBackground(background, solid));
+            outside.setTextColor(ink);
+            outside.setText(temperature.getText());
+            outside.setVisibility(preferences.getBoolean("showTemperature", true) ? View.VISIBLE : View.GONE);
+            Typeface font = clockTypeface(preferences.getInt("font", 0));
+            boolean flip = preferences.getInt("displayStyle", 0) == 1;
+            boolean twentyFour = is24HourClock();
+            Date now = new Date();
+            String reading = DateFormat.format(twentyFour ? "HH:mm" : "h:mm", now).toString();
+            String periodLabel = twentyFour ? "" : DateFormat.format("aa", now).toString();
+            suffix.setText(periodLabel);
+            suffix.setTextColor(ink);
+            suffix.setVisibility(twentyFour ? View.GONE : View.VISIBLE);
+            float available = preview.getWidth() - dp(16)
+                    - (twentyFour ? 0 : suffix.getPaint().measureText(periodLabel) + suffix.getPaddingLeft());
+            Paint measure = new Paint(Paint.ANTI_ALIAS_FLAG);
+            measure.setTypeface(font);
+            measure.setTextSize(100);
+            float unitWidth = flip ? FlipClockView.widthAtUnitSize(reading) : measure.measureText(reading) / 100f;
+            float size = Math.min(dp(65), Math.max(1, available) / Math.max(1, unitWidth))
+                    * Math.min(1f, preferences.getInt("size", 100) / 120f);
+            digital.setVisibility(flip ? View.GONE : View.VISIBLE);
+            flips.setVisibility(flip ? View.VISIBLE : View.GONE);
+            if (flip) {
+                flips.setFace(font, ink, light);
+                flips.setDigitSize(size);
+                flips.setReading(reading);
+            } else {
+                digital.setTypeface(font);
+                digital.setTextColor(ink);
+                digital.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, size);
+                digital.setText(reading);
+            }
+            boolean weekday = preferences.getBoolean("showWeekday", true);
+            boolean showDate = preferences.getBoolean("showDate", true);
+            calendar.setVisibility(weekday || showDate ? View.VISIBLE : View.GONE);
+            calendar.setTextColor(ink);
+            if (weekday || showDate) {
+                String skeleton = weekday ? (showDate ? "EEEE MMMM d" : "EEEE") : "MMMM d";
+                calendar.setText(DateFormat.format(DateFormat.getBestDateTimePattern(Locale.getDefault(), skeleton), now));
+            }
+            int position = preferences.getInt("position", 0);
+            int gravity = position == 0 ? Gravity.CENTER : Gravity.BOTTOM |
+                    (position == 2 ? Gravity.LEFT : Gravity.CENTER_HORIZONTAL);
+            FrameLayout.LayoutParams facePosition = new FrameLayout.LayoutParams(-2, -2, gravity);
+            facePosition.setMargins(dp(8), 0, dp(8), position == 0 ? 0 : dp(6));
+            faceContent.setLayoutParams(facePosition);
+        };
+        preview.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            if (right - left != oldRight - oldLeft && settingsPreview != null) settingsPreview.run();
+        });
+    }
     private void brightnessSettings(LinearLayout panel) {
         LinearLayout levels = column();
         LinearLayout wake = column();
         LinearLayout schedule = column();
+        LinearLayout dayStart = column();
+        LinearLayout nightOptions = column();
         LinearLayout manual = column();
         LinearLayout wakeTiming = column();
         LinearLayout sensorMinimum = column();
         TextView roomLightHint = textLabel("Room light follows the schedule on this device.");
+        String[] modes = {"Schedule", "Room light", "Manual"};
+        Button[] modeButtons = new Button[modes.length];
+        LinearLayout modeRow = new LinearLayout(this);
+        for (int index = 0; index < modes.length; index++) {
+            modeButtons[index] = settingsAction(modes[index], 0xff28292b);
+            modeButtons[index].setMinWidth(0);
+            modeButtons[index].setMinimumWidth(0);
+            modeButtons[index].setPadding(0, 0, 0, 0);
+            LinearLayout.LayoutParams slot = new LinearLayout.LayoutParams(0, dp(44), 1);
+            if (index > 0) slot.setMarginStart(dp(4));
+            modeRow.addView(modeButtons[index], slot);
+        }
+        panel.addView(modeRow);
         Runnable refresh = () -> {
             int mode = preferences.getInt("brightnessMode", 0);
             boolean waking = preferences.getBoolean("wakeEnabled", false);
             boolean red = preferences.getBoolean("redAtNight", false);
-            schedule.setVisibility(mode != 2 || waking || red ? View.VISIBLE : View.GONE);
+            boolean scheduled = mode == 0 || (mode == 1 && lightSensor == null) || waking || red;
+            schedule.setVisibility(scheduled || mode == 1 ? View.VISIBLE : View.GONE);
+            dayStart.setVisibility(scheduled ? View.VISIBLE : View.GONE);
+            nightOptions.setVisibility(scheduled ? View.VISIBLE : View.GONE);
             manual.setVisibility(mode == 2 ? View.VISIBLE : View.GONE);
             wakeTiming.setVisibility(waking ? View.VISIBLE : View.GONE);
             sensorMinimum.setVisibility(mode == 1 && lightSensor != null ? View.VISIBLE : View.GONE);
             roomLightHint.setVisibility(mode == 1 && lightSensor == null ? View.VISIBLE : View.GONE);
+            for (int index = 0; index < modeButtons.length; index++) {
+                boolean selected = index == mode;
+                modeButtons[index].setSelected(selected);
+                modeButtons[index].setBackground(settingsBackground(selected ? 0xff484a4d : 0xff28292b));
+            }
         };
-        heading(levels, "Screen brightness");
-        choice(levels, "Mode", "brightnessMode", new String[] {"Schedule", "Room light", "Manual"}, 0, refresh);
+        for (int index = 0; index < modeButtons.length; index++) {
+            int mode = index;
+            modeButtons[index].setOnClickListener(view -> {
+                preferences.edit().putInt("brightnessMode", mode).apply();
+                updateBrightness();
+                refresh.run();
+            });
+        }
+        heading(levels, "Screen levels");
         levels.addView(roomLightHint);
         slider(sensorMinimum, "Dark-room minimum brightness", "darkRoomMinimum", 0, 100,
                 preferences.getInt("nightLevel", 10));
         levels.addView(sensorMinimum);
-        scheduleRow(schedule, "Day starts", "dayStart", 360);
+        scheduleRow(dayStart, "Day starts", "dayStart", 360);
+        schedule.addView(dayStart);
         slider(schedule, "Day level", "dayLevel", 1, 100, 80);
-        scheduleRow(schedule, "Night starts", "nightStart", 1320);
-        slider(schedule, "Night level", "nightLevel", 0, 100, 10);
+        scheduleRow(nightOptions, "Night starts", "nightStart", 1320);
+        slider(nightOptions, "Night level", "nightLevel", 0, 100, 10);
+        schedule.addView(nightOptions);
         slider(manual, "Brightness", "manualLevel", 0, 100, 50);
         levels.addView(schedule);
         levels.addView(manual);
@@ -973,40 +1149,58 @@ public final class ClockActivity extends Activity implements SensorEventListener
         choice(wakeTiming, "Brighten over", "wakeDuration",
                 new String[] {"5 minutes", "10 minutes", "15 minutes", "30 minutes", "45 minutes", "60 minutes"}, 3);
         wake.addView(wakeTiming);
-        wake.addView(textLabel("Brightens from your night level to your day level while the clock is open."));
+        wakeTiming.addView(textLabel("Brightens from your night level to your day level while the clock is open."));
         refresh.run();
         addSettingsColumns(panel, levels, wake);
     }
 
     private void alarmSettings(LinearLayout panel) {
-        heading(panel, "Next alarm");
-        panel.addView(textLabel(DailyAlarm.enabled(this) ? formatMinute(DailyAlarm.time(this)) : "Off"));
-        LinearLayout actions = new LinearLayout(this);
-        Button set = button("Set time");
-        actions.addView(set);
-        set.setOnClickListener(view -> pickAlarmTime());
-        if (DailyAlarm.enabled(this)) {
-            Button off = button("Turn off");
-            actions.addView(off);
-            off.setOnClickListener(view -> saveAlarm(false, DailyAlarm.time(this)));
+        LinearLayout card = settingsCard();
+        boolean enabled = DailyAlarm.enabled(this);
+        Switch armed = new Switch(this);
+        armed.setText("Next alarm");
+        armed.setMinHeight(dp(44));
+        armed.setChecked(enabled);
+        card.addView(armed);
+        armed.setOnCheckedChangeListener((view, checked) -> {
+            if (!checked) {
+                saveAlarm(false, DailyAlarm.time(this));
+                return;
+            }
+            pickAlarmTime(() -> showSettingsPage(settingsTab));
+        });
+        if (enabled) {
+            Button set = settingsAction("Time · " + formatMinute(DailyAlarm.time(this)), 0xff3b3d40);
+            card.addView(set, new LinearLayout.LayoutParams(-1, dp(44)));
+            set.setOnClickListener(view -> pickAlarmTime());
         }
-        panel.addView(actions);
-        panel.addView(textLabel("Rings once. Tap Stop alarm or press a volume button when it rings."));
+        card.addView(textLabel("Rings once. Either volume button stops it on the alarm screen."));
+        panel.addView(card);
     }
 
     private void weatherSettings(LinearLayout panel) {
-        heading(panel, "Temperature source");
-        toggle(panel, "Use PanTech outdoor sensor", "usePanTech", true, this::refreshTemperature);
-        panel.addView(textLabel("PanTech IP address"));
+        LinearLayout sensor = settingsCard();
+        LinearLayout forecastOptions = settingsCard();
+        LinearLayout station = column();
+        Runnable showStation = () -> station.setVisibility(
+                preferences.getBoolean("usePanTech", true) ? View.VISIBLE : View.GONE);
+        heading(sensor, "Temperature source");
+        toggle(sensor, "Use PanTech outdoor sensor", "usePanTech", true, () -> {
+            showStation.run();
+            refreshTemperature();
+        });
+        station.addView(textLabel("Station IP"));
         EditText address = new EditText(this);
         address.setSingleLine();
         address.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         address.setContentDescription("PanTech IP address");
         address.setText(stationAddress());
         address.setSelectAllOnFocus(true);
-        panel.addView(address);
-        Button save = button("Save station IP");
-        panel.addView(save);
+        Button save = settingsAction("Save", 0xff3b3d40);
+        addInputAction(station, address, save);
+        sensor.addView(station);
+        showStation.run();
+        sensor.addView(textLabel("Switch off PanTech to use BOM observations."));
         save.setOnClickListener(view -> {
             String value = address.getText().toString().trim();
             if (value.contains(":") || !android.util.Patterns.IP_ADDRESS.matcher(value).matches()) {
@@ -1017,7 +1211,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
             if (preferences.getBoolean("usePanTech", true)) refreshTemperature();
             android.widget.Toast.makeText(this, "Station IP saved", android.widget.Toast.LENGTH_SHORT).show();
         });
-        heading(panel, "Weather locality");
+        heading(forecastOptions, "Forecast location");
         EditText postcode = new EditText(this);
         postcode.setSingleLine();
         postcode.setInputType(InputType.TYPE_CLASS_NUMBER);
@@ -1025,22 +1219,36 @@ public final class ClockActivity extends Activity implements SensorEventListener
         postcode.setHint("Australian postcode");
         postcode.setContentDescription("Australian postcode");
         postcode.setText(preferences.getString("postcode", ""));
-        panel.addView(postcode);
+        forecastOptions.addView(textLabel("Australian postcode"));
         TextView status = textLabel(preferences.getString("locality", ""));
-        Button search = button("Find locality");
-        panel.addView(search);
-        panel.addView(status);
+        Button search = settingsAction("Find locality", 0xff3b3d40);
+        addInputAction(forecastOptions, postcode, search);
+        forecastOptions.addView(status);
         TextView forecastSource = textLabel("");
         forecastSource.setAutoLinkMask(android.text.util.Linkify.WEB_URLS);
-        forecastSource.setText("Hourly conditions via https://open-meteo.com. Refreshed every two hours.");
-        panel.addView(forecastSource);
+        forecastSource.setText("Forecast via https://open-meteo.com. Updates every two hours.");
+        forecastOptions.addView(forecastSource);
         search.setOnClickListener(view -> findWeather(postcode.getText().toString(), search, status));
+        addSettingsColumns(panel, sensor, forecastOptions);
+    }
+
+    private void addInputAction(LinearLayout panel, EditText field, Button action) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(field, new LinearLayout.LayoutParams(0, -2, 1));
+        LinearLayout.LayoutParams actionSlot = new LinearLayout.LayoutParams(-2, dp(44));
+        actionSlot.setMarginStart(dp(6));
+        row.addView(action, actionSlot);
+        panel.addView(row);
     }
 
     private void deviceSettings(LinearLayout panel) {
-        heading(panel, "Screen and gestures");
-        toggle(panel, "Keep screen awake", "keepAwake", true);
-        toggle(panel, "Double-tap clock to exit", "doubleTap", true);
+        LinearLayout card = settingsCard();
+        toggle(card, "Keep screen awake", "keepAwake", true);
+        card.addView(textLabel("While the clock is open"));
+        toggle(card, "Double-tap to exit", "doubleTap", true);
+        card.addView(textLabel("Double-tap the clock face"));
+        panel.addView(card);
     }
 
     private void findWeather(String postcode, Button search, TextView status) {
@@ -1138,6 +1346,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
                 preferences.edit().putInt(key, index).apply();
                 updateBrightness();
                 if (onChange != null) onChange.run();
+                if (settingsPreview != null) settingsPreview.run();
             }
 
             @Override public void onNothingSelected(AdapterView<?> parent) {}
@@ -1161,6 +1370,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
                 label.setText(caption + " · " + progress + "%");
                 preferences.edit().putInt(key, progress).apply();
                 updateBrightness();
+                if (settingsPreview != null) settingsPreview.run();
             }
 
             @Override public void onStartTrackingTouch(SeekBar view) {}
@@ -1219,9 +1429,18 @@ public final class ClockActivity extends Activity implements SensorEventListener
     }
 
     private void pickAlarmTime() {
+        pickAlarmTime(null);
+    }
+
+    private void pickAlarmTime(Runnable cancelled) {
         int minute = DailyAlarm.time(this);
-        new TimePickerDialog(this, (picker, hour, minutes) -> saveAlarm(true, hour * 60 + minutes),
-                minute / 60, minute % 60, is24HourClock()).show();
+        TimePickerDialog picker = new TimePickerDialog(this, (view, hour, minutes) -> saveAlarm(true, hour * 60 + minutes),
+                minute / 60, minute % 60, is24HourClock());
+        if (cancelled != null) {
+            picker.setButton(AlertDialog.BUTTON_NEGATIVE, "Cancel", (dialog, which) -> picker.cancel());
+            picker.setOnCancelListener(dialog -> cancelled.run());
+        }
+        picker.show();
     }
 
     private void saveAlarm(boolean enabled, int minute) {
@@ -1303,6 +1522,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
             preferences.edit().putBoolean(key, checked).apply();
             updateBrightness();
             if (onChange != null) onChange.run();
+            if (settingsPreview != null) settingsPreview.run();
         });
         panel.addView(control);
     }

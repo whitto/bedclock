@@ -2,7 +2,17 @@
 
 ## Current release
 
-Version **5.0** (Android version code **32**) is installed on a second-generation Echo Show 5 running LineageOS. The application ID is `au.clock.display`. The app is the selected Home app and screensaver on the test Echo.
+Version **5.0.4** (Android version code **36**) uses application ID `au.clock.display`.
+
+- **Clock** includes a live face preview and collapses the weekday, date and outside-temperature switches under **Show on clock**.
+- **Brightness** puts mode selection at the top and shows controls for the chosen mode. The red-night setting, wake ramp and tap-to-recover behaviour at 0% are still available.
+- **Alarm** shows the one-shot alarm state and opens the time picker when enabling it.
+- **Weather** groups PanTech station configuration separately from postcode and forecast location. **Device** keeps the screen and gesture switches together.
+- The bottom-left gear from 5.0.3 opens the new grey sidebar.
+
+The 5.0.4 APK was built, checked for alignment and verified against the 5.0.3 signing certificate. The 5.0.4 screens have not yet been tested on the Echo.
+
+## Existing features
 
 - The clock supports digital and flip faces, scheduled and sensor-based dimming, and a one-shot alarm.
 - Weather supports an editable local PanTech station address, BOM observations and Open-Meteo forecasts. Startup sync waits two minutes after Wi-Fi becomes available. Tapping the temperature opens the rest of today and the next three full days. Tap again or wait 30 seconds to close.

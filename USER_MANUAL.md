@@ -2,7 +2,7 @@
 
 ## Set up your Echo
 
-Install and open Bedside Clock using the [installation instructions](README.md#install). Tap the gear on the clock face to open Settings. Tap **Done** to return to the clock.
+Install and open Bedside Clock using the [installation instructions](README.md#install). Tap the bottom-left gear to open Settings. Use the grey sidebar to switch screens, then tap **Done** to return to the clock.
 
 - **Start at boot.** In Android Settings, open **Apps & notifications → Default apps → Home app** and select **Bedside Clock**. Home now opens the clock. Select the original launcher here to restore it.
 - **Keep the full clock visible overnight.** In the app, turn on **Device → Keep screen awake**. The app can still dim the display using its own brightness settings.
@@ -18,7 +18,7 @@ Under **Brightness**, choose **Schedule** for separate day and night levels, **R
 
 ## Set an alarm
 
-Tap **Settings → Alarm → Set time**. The bell on the face indicates an active alarm. The alarm rings once. To cancel it beforehand, select **Turn off**. When it rings, tap **Stop alarm** or press a volume button.
+Open **Settings → Alarm** and turn on **Next alarm** to pick a time. A bell on the face indicates an active alarm. The alarm rings once. To cancel it beforehand, switch off **Next alarm**. When it rings, tap **Stop alarm** or press a volume button.
 
 ## Set up weather
 
