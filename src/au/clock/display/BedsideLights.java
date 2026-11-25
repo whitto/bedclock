@@ -204,7 +204,9 @@ final class BedsideLights {
         TextView stateLabel = label("", 17, MUTED);
         labels.addView(stateLabel);
         heading.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView toggle = action("⏻", name, () -> {});
+        TextView toggle = action("", name, () -> {});
+        toggle.setForeground(activity.getDrawable(R.drawable.bedside_power).mutate());
+        toggle.setForegroundGravity(Gravity.CENTER);
         heading.addView(toggle, new LinearLayout.LayoutParams(dp(56), dp(56)));
         card.addView(heading, new LinearLayout.LayoutParams(-1, -2));
 
@@ -253,8 +255,8 @@ final class BedsideLights {
         state.setText(on ? "On" : "Off");
         state.setTextColor(on ? AMBER : MUTED);
         bulb.setAlpha(on ? 1f : 0.35f);
-        power.setTextColor(on ? 0xff211914 : Color.WHITE);
-        power.setBackground(rounded(on ? AMBER : 0xff564943, 28));
+        power.getForeground().setTint(on ? 0xff211914 : Color.WHITE);
+        power.setBackground(rounded(on ? 0xffffad1a : 0xff625851, 28));
         power.setContentDescription((on ? "Turn off " : "Turn on ") + name);
     }
 

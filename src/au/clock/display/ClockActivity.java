@@ -272,7 +272,11 @@ public final class ClockActivity extends Activity implements SensorEventListener
                             android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
                     if (resolved != null && getPackageName().equals(resolved.activityInfo.packageName)) {
                         home.setPackage("com.android.launcher3");
-                        if (home.resolveActivity(getPackageManager()) != null) startActivity(home);
+                        try {
+                            startActivity(home.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        } catch (android.content.ActivityNotFoundException unavailable) {
+                            startActivity(new Intent(android.provider.Settings.ACTION_HOME_SETTINGS));
+                        }
                     }
                     finish();
                     return true;
@@ -491,19 +495,27 @@ public final class ClockActivity extends Activity implements SensorEventListener
         }
         if (settings != null || AlarmSound.isRinging()) level = Math.max(level, 35);
         if (level == appliedBrightness) return;
-        if (level == 0 && darkCover == null) {
-            darkCover = new View(this);
-            darkCover.setBackgroundColor(Color.BLACK);
-            darkCover.setElevation(dp(12));
-            darkCover.setContentDescription("Open brightness settings");
-            darkCover.setOnClickListener(view -> {
-                closeWeatherPanel();
-                openSettings();
-                showSettingsPage(1);
-                updateBrightness();
-            });
-            root.addView(darkCover, new FrameLayout.LayoutParams(-1, -1));
-        } else if (level > 0 && darkCover != null) {
+        if (level < 5) {
+            if (darkCover == null) {
+                darkCover = new View(this);
+                darkCover.setElevation(dp(12));
+                darkCover.setOnClickListener(view -> {
+                    closeWeatherPanel();
+                    openSettings();
+                    showSettingsPage(1);
+                    updateBrightness();
+                });
+                root.addView(darkCover, new FrameLayout.LayoutParams(-1, -1));
+            }
+            // The panel can clamp low backlight requests. Dim the rendered pixels as well.
+            int shade = 255 - level * 51;
+            darkCover.setBackgroundColor(Color.argb(shade, 0, 0, 0));
+            darkCover.setClickable(level == 0);
+            darkCover.setFocusable(level == 0);
+            darkCover.setContentDescription(level == 0 ? "Open brightness settings" : null);
+            darkCover.setImportantForAccessibility(level == 0
+                    ? View.IMPORTANT_FOR_ACCESSIBILITY_YES : View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        } else if (darkCover != null) {
             root.removeView(darkCover);
             darkCover = null;
         }
@@ -945,15 +957,15 @@ public final class ClockActivity extends Activity implements SensorEventListener
         levels.addView(roomLightHint);
         slider(sensorMinimum, "Dark-room minimum brightness", "darkRoomMinimum", 0, 100,
                 preferences.getInt("nightLevel", 10));
-        sensorMinimum.addView(textLabel("At 0%, the clock goes black in darkness. Tap anywhere to adjust brightness."));
         levels.addView(sensorMinimum);
         scheduleRow(schedule, "Day starts", "dayStart", 360);
         slider(schedule, "Day level", "dayLevel", 1, 100, 80);
         scheduleRow(schedule, "Night starts", "nightStart", 1320);
-        slider(schedule, "Night level", "nightLevel", 1, 100, 10);
-        slider(manual, "Brightness", "manualLevel", 1, 100, 50);
+        slider(schedule, "Night level", "nightLevel", 0, 100, 10);
+        slider(manual, "Brightness", "manualLevel", 0, 100, 50);
         levels.addView(schedule);
         levels.addView(manual);
+        levels.addView(textLabel("Close settings to see the selected brightness. At 0%, tap the black screen to reopen brightness settings."));
         toggle(levels, "Red clock at night", "redAtNight", false, refresh);
         heading(wake, "Wake brightness");
         toggle(wake, "Gradually brighten", "wakeEnabled", false, refresh);
