@@ -1,0 +1,6 @@
+Australian postal code data © GeoNames contributors
+https://www.geonames.org/
+Source: https://download.geonames.org/export/zip/AU.zip
+Licensed under Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+Adapted by retaining postcode, locality name, state code and coordinates.

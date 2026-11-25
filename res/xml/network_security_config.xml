@@ -1,0 +1,4 @@
+<network-security-config>
+    <!-- The station serves HTTP at a user-selected IP address. -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
