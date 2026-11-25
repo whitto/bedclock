@@ -136,6 +136,8 @@ public final class ClockActivity extends Activity implements SensorEventListener
     private SensorManager sensors;
     private Sensor lightSensor;
     private float lightFraction = -1;
+    private View darkCover;
+    private boolean roomDark;
     private int appliedBrightness = -1;
     private int clockForeground;
     private int clockSecondary;
@@ -436,9 +438,9 @@ public final class ClockActivity extends Activity implements SensorEventListener
         int mode = preferences.getInt("brightnessMode", 0);
         int level = scheduleLevel();
         if (mode == 1 && lightFraction >= 0) {
-            int min = preferences.getInt("nightLevel", 10);
+            int min = preferences.getInt("darkRoomMinimum", preferences.getInt("nightLevel", 10));
             int max = preferences.getInt("dayLevel", 80);
-            level = Math.round(min + (max - min) * lightFraction);
+            level = roomDark ? min : Math.max(1, Math.round(min + (Math.max(min, max) - min) * lightFraction));
         } else if (mode == 2) {
             level = preferences.getInt("manualLevel", 50);
         }
@@ -456,8 +458,24 @@ public final class ClockActivity extends Activity implements SensorEventListener
                 level = Math.round(nightLevel + (wakeLevel - nightLevel) * progress);
             }
         }
-        if (settings != null) level = Math.max(level, 35);
+        if (settings != null || AlarmSound.isRinging()) level = Math.max(level, 35);
         if (level == appliedBrightness) return;
+        if (level == 0 && darkCover == null) {
+            darkCover = new View(this);
+            darkCover.setBackgroundColor(Color.BLACK);
+            darkCover.setElevation(dp(12));
+            darkCover.setContentDescription("Open brightness settings");
+            darkCover.setOnClickListener(view -> {
+                closeWeatherPanel();
+                openSettings();
+                showSettingsPage(1);
+                updateBrightness();
+            });
+            root.addView(darkCover, new FrameLayout.LayoutParams(-1, -1));
+        } else if (level > 0 && darkCover != null) {
+            root.removeView(darkCover);
+            darkCover = null;
+        }
         WindowManager.LayoutParams attributes = getWindow().getAttributes();
         attributes.screenBrightness = level / 100f;
         getWindow().setAttributes(attributes);
@@ -466,6 +484,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
 
     @Override public void onSensorChanged(SensorEvent event) {
         float lux = Math.max(0, event.values[0]);
+        roomDark = lux <= 1f || (roomDark && lux < 3f);
         float fraction = (float) Math.min(1, Math.log1p(lux) / Math.log1p(250));
         lightFraction = lightFraction < 0 ? fraction : lightFraction * .75f + fraction * .25f;
         updateBrightness();
@@ -623,7 +642,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
         weatherPanel.setOrientation(LinearLayout.VERTICAL);
         weatherPanel.setPadding(dp(24), dp(16), dp(24), dp(12));
         weatherPanel.setBackgroundColor(0xff111b24);
-        weatherPanel.setClickable(true);
+        weatherPanel.setOnClickListener(view -> closeWeatherPanel());
         root.addView(weatherPanel, new FrameLayout.LayoutParams(-1, -1));
         updateWeather();
         renderWeatherPanel();
@@ -875,6 +894,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
         LinearLayout schedule = column();
         LinearLayout manual = column();
         LinearLayout wakeTiming = column();
+        LinearLayout sensorMinimum = column();
         TextView roomLightHint = textLabel("Room light follows the schedule on this device.");
         Runnable refresh = () -> {
             int mode = preferences.getInt("brightnessMode", 0);
@@ -883,11 +903,16 @@ public final class ClockActivity extends Activity implements SensorEventListener
             schedule.setVisibility(mode != 2 || waking || red ? View.VISIBLE : View.GONE);
             manual.setVisibility(mode == 2 ? View.VISIBLE : View.GONE);
             wakeTiming.setVisibility(waking ? View.VISIBLE : View.GONE);
+            sensorMinimum.setVisibility(mode == 1 && lightSensor != null ? View.VISIBLE : View.GONE);
             roomLightHint.setVisibility(mode == 1 && lightSensor == null ? View.VISIBLE : View.GONE);
         };
         heading(levels, "Screen brightness");
         choice(levels, "Mode", "brightnessMode", new String[] {"Schedule", "Room light", "Manual"}, 0, refresh);
         levels.addView(roomLightHint);
+        slider(sensorMinimum, "Dark-room minimum brightness", "darkRoomMinimum", 0, 100,
+                preferences.getInt("nightLevel", 10));
+        sensorMinimum.addView(textLabel("At 0%, the clock goes black in darkness. Tap anywhere to adjust brightness."));
+        levels.addView(sensorMinimum);
         scheduleRow(schedule, "Day starts", "dayStart", 360);
         slider(schedule, "Day level", "dayLevel", 1, 100, 80);
         scheduleRow(schedule, "Night starts", "nightStart", 1320);

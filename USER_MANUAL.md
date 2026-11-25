@@ -14,7 +14,7 @@ Install and open Bedside Clock using the [installation instructions](README.md#i
 
 Under **Clock**, choose Digital or Flip clock, font, size and position. Time format can follow Android or use 12-hour or 24-hour time. Choose a gradient, black or custom solid background. Weekday, date and outside temperature have separate switches.
 
-Under **Brightness**, choose **Schedule** for separate day and night levels, **Room light** to follow the ambient-light sensor, or **Manual** for a fixed level. Room light follows the schedule if Android does not expose a sensor. **Red clock at night** follows the day/night times. **Gradually brighten** raises brightness from the night level to the day level over the selected interval while the clock is open. Set an alarm separately if you also want sound.
+Under **Brightness**, choose **Schedule** for separate day and night levels, **Room light** to follow the ambient-light sensor, or **Manual** for a fixed level. In Room light mode, set **Dark-room minimum brightness** from 0% to 100%. At 0%, the clock face goes black at 1 lux or below and reappears at 3 lux or above. Tap anywhere on the black face to open Brightness settings. The wake brightness schedule can also brighten the clock. Room light follows the schedule if Android does not expose a sensor. **Red clock at night** follows the day/night times. **Gradually brighten** raises brightness from the night level to the day level over the selected interval while the clock is open. Set an alarm separately if you also want sound.
 
 ## Set an alarm
 
@@ -27,7 +27,7 @@ Tap **Settings → Alarm → Set time**. The bell on the face indicates an activ
 3. Enter a four-digit Australian postcode, tap **Find locality**, and select your locality. This sets the forecast location. To use Bureau of Meteorology observations for temperature, turn off the PanTech switch and leave a locality selected.
 4. Allow two minutes after the app detects Wi-Fi for the first sync. A reconnection restarts the wait. While the clock is open, it normally checks the station every minute, BOM observations every 15 minutes and forecasts every two hours.
 
-Tap the temperature or the surrounding upper-left corner to see the rest of today followed by three full days. Today’s rainfall estimate counts only the remaining hours, with the current partial hour prorated. Rain chance is the highest hourly probability for each period. Each column gives the high and low in °C, expected conditions, rain chance and rainfall in millimetres. The panel closes after 30 seconds. Android Back closes it sooner. The station supplies current observations. Open-Meteo supplies the forecast.
+Tap the temperature or the surrounding upper-left corner to see the rest of today followed by three full days. Today’s rainfall estimate counts only the remaining hours, with the current partial hour prorated. Rain chance is the highest hourly probability for each period. Each column gives the high and low in °C, expected conditions, rain chance and rainfall in millimetres. The panel closes after 30 seconds. Tap anywhere on the forecast or press Android Back to close it sooner. The station supplies current observations. Open-Meteo supplies the forecast.
 
 ## Troubleshooting
 
