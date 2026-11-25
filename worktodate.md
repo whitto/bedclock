@@ -1,5 +1,11 @@
 # Bedside Clock work to date
 
+## 5.0.11
+
+- Weather sync begins when Android confirms internet access over Wi-Fi, or after three seconds on a stable Wi-Fi connection. While waiting for the first PanTech reading, the clock retries after five seconds and caps the retry wait at ten seconds. After a successful reading, normal one-minute station checks resume.
+- On the test Echo the first station request succeeded in 0.54 seconds. The retry cap was not exercised on that run.
+- Version 5.0.9 added Spotify startup after reboot. The Echo appeared in the phone’s Spotify Connect device list after the automatic return to the clock. Version 5.0.10 removed the two-minute Wi-Fi startup wait.
+
 ## 5.0.8
 
 - Choose from White, Amber, Red, Green and Blue for day and night digits, with a live preview.
@@ -22,8 +28,8 @@ The 5.0.4 APK was built, checked for alignment and verified against the 5.0.3 si
 ## Existing features
 
 - The clock supports digital and flip faces, scheduled and sensor-based dimming, and a one-shot alarm.
-- Weather supports an editable local PanTech station address, BOM observations and Open-Meteo forecasts. Startup sync waits two minutes after Wi-Fi becomes available. Tapping the temperature opens the rest of today and the next three full days. Tap again or wait 30 seconds to close.
-- Spotify loads in the background when the clock starts. The Spotify button opens the player. On the test Echo, a pause returned to the clock after about five seconds with Android's **Display over other apps** permission enabled.
+- Weather supports an editable local PanTech station address, BOM observations and Open-Meteo forecasts. Startup sync begins when Wi-Fi is ready. Tapping the temperature opens the rest of today and the next three full days. Tap again or wait 30 seconds to close.
+- Spotify briefly opens once per reboot when enabled, then the clock returns. The Spotify button opens the player. On the test Echo, a pause returned to the clock after about five seconds with Android's **Display over other apps** permission enabled.
 - The amber house opens a full-screen Home Assistant panel with separate power and brightness controls for **Lamp Craig** and **Lamp Kristen**. The 5.0 build loaded both live lamp states at 25%. That check did not exercise power or dimming writes.
 
 ## Where to pick up

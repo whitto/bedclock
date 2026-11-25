@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.provider.Settings;
 import android.content.pm.ResolveInfo;
 import android.media.AudioManager;
 import android.media.browse.MediaBrowser;
@@ -14,7 +16,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.widget.Toast;
 
-/** Connect to the installed player without opening its UI or requesting playback. */
+/** Handles Spotify startup and the clock shortcut. */
 final class SpotifyLink {
     static final String PACKAGE = "com.spotify.music";
     private final Activity clock;
@@ -24,12 +26,41 @@ final class SpotifyLink {
     private final android.os.PowerManager.WakeLock playbackScreen;
     private boolean watching, played;
     private long idleSince;
+    private final SharedPreferences preferences;
+    private final int bootCount;
+    private boolean startupHandled;
 
     SpotifyLink(Activity clock) {
         this.clock = clock;
+        preferences = clock.getPreferences(Context.MODE_PRIVATE);
+        bootCount = Settings.Global.getInt(clock.getContentResolver(), Settings.Global.BOOT_COUNT, -1);
+        startupHandled = bootCount < 0 || preferences.getInt("spotifyStartedBoot", -1) == bootCount;
         android.os.PowerManager power = clock.getSystemService(android.os.PowerManager.class);
         playbackScreen = power.newWakeLock(android.os.PowerManager.SCREEN_DIM_WAKE_LOCK, "BedsideClock:Spotify");
         playbackScreen.setReferenceCounted(false);
+    }
+
+    void prepareAfterBoot() {
+        if (startupHandled || !preferences.getBoolean("startSpotifyAfterBoot", true)) return;
+        startupHandled = true;
+        Intent player = clock.getPackageManager().getLaunchIntentForPackage(PACKAGE);
+        if (player == null) return;
+        try {
+            clock.startActivity(player);
+            preferences.edit().putInt("spotifyStartedBoot", bootCount).apply();
+            handler.postDelayed(returnFromStartup, 10_000L);
+        } catch (android.content.ActivityNotFoundException | SecurityException e) {
+            android.util.Log.w("BedsideClock", "Spotify startup unavailable", e);
+        }
+    }
+
+    private final Runnable returnFromStartup = this::returnToClock;
+
+    private void returnToClock() {
+        if (clock.isFinishing() || clock.isDestroyed()) return;
+        clock.startActivity(new Intent(clock, ClockActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP));
     }
 
     void connect() {
@@ -94,10 +125,7 @@ final class SpotifyLink {
                 long now = SystemClock.elapsedRealtime();
                 if (idleSince == 0) idleSince = now;
                 if (now - idleSince >= 5000) {
-                    Intent home = new Intent(clock, ClockActivity.class)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                                    | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                    clock.startActivity(home);
+                    returnToClock();
                     stopWatching();
                     return;
                 }
@@ -107,6 +135,7 @@ final class SpotifyLink {
     };
 
     void stopWatching() {
+        handler.removeCallbacks(returnFromStartup);
         watching = false;
         if (playbackScreen.isHeld()) playbackScreen.release();
         handler.removeCallbacks(check);

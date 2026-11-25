@@ -76,24 +76,39 @@ public final class ClockActivity extends Activity implements SensorEventListener
     private static final int[] WAKE_DURATIONS = {5, 10, 15, 30, 45, 60};
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService network = Executors.newFixedThreadPool(2);
-    private static final long WIFI_SETTLE_MS = 120_000L;
+    private static final long WIFI_SETTLE_MS = 3_000L;
     private Network weatherWifi;
     private long weatherReadyAt;
+    private long weatherConnectionId;
+    private boolean weatherWifiValidated;
     private final Runnable syncAfterWifi = this::updateWeather;
     private final ConnectivityManager.NetworkCallback wifiChanges = new ConnectivityManager.NetworkCallback() {
         @Override public void onCapabilitiesChanged(Network network, NetworkCapabilities capabilities) {
             if (isDestroyed()) return;
             if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
                 clearWeatherWifi();
-            } else if (!network.equals(weatherWifi)) {
+                return;
+            }
+            if (!network.equals(weatherWifi)) {
                 clearWeatherWifi();
                 weatherWifi = network;
+                weatherConnectionId++;
+                receivedLocalReading = false;
                 weatherReadyAt = SystemClock.elapsedRealtime() + WIFI_SETTLE_MS;
-                nextWeather = nextForecast = 0;
+                nextWeather = nextForecast = nextDays = 0;
                 weatherRetry = forecastRetry = 5000L;
-                android.util.Log.i("BedsideClock", "Wi-Fi available; waiting two minutes for weather");
                 handler.postDelayed(syncAfterWifi, WIFI_SETTLE_MS);
             }
+            boolean validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+            if (validated && !weatherWifiValidated) {
+                handler.removeCallbacks(syncAfterWifi);
+                weatherReadyAt = 0;
+                if (weatherFailed) nextWeather = 0;
+                if (forecast == null) nextForecast = 0;
+                if (days == null) nextDays = 0;
+                updateWeather();
+            }
+            weatherWifiValidated = validated;
         }
 
         @Override public void onLost(Network network) {
@@ -104,6 +119,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
     private void clearWeatherWifi() {
         handler.removeCallbacks(syncAfterWifi);
         weatherWifi = null;
+        weatherWifiValidated = false;
     }
 
     private final Runnable tick = new Runnable() {
@@ -112,6 +128,8 @@ public final class ClockActivity extends Activity implements SensorEventListener
             updateBrightness();
             updateWeather();
             updateAlarm();
+            if (weatherWifi != null && hasWindowFocus() && settings == null && weatherPanel == null
+                    && !AlarmSound.isRinging()) spotify.prepareAfterBoot();
             handler.postDelayed(this, 1000 - System.currentTimeMillis() % 1000);
         }
     };
@@ -148,6 +166,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
     private int clockSecondary;
     private long nextWeather;
     private long weatherRetry = 5000L;
+    private boolean receivedLocalReading;
     private long forecastRetry = 5000L;
     private long weatherTime;
     private BomWeather.Reading lastReading;
@@ -622,7 +641,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
             updateForecast(location, latitude, longitude, now);
             return;
         }
-        long connectionTime = weatherReadyAt;
+        long connectionId = weatherConnectionId;
         android.util.Log.i("BedsideClock", "Requesting weather observation");
         String address = stationAddress();
         weatherInFlight = true;
@@ -639,7 +658,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
             runOnUiThread(() -> {
                 if (isDestroyed()) return;
                 weatherInFlight = false;
-                if (weatherWifi == null || weatherReadyAt != connectionTime) {
+                if (weatherWifi == null || weatherConnectionId != connectionId) {
                     nextWeather = 0;
                     updateWeather();
                     return;
@@ -654,11 +673,13 @@ public final class ClockActivity extends Activity implements SensorEventListener
                 if (!weatherFailed) {
                     weatherRetry = 5000L;
                     android.util.Log.i("BedsideClock", "Weather observation received");
+                    receivedLocalReading = local;
                     lastReading = result;
                     weatherTime = SystemClock.elapsedRealtime();
                 } else {
-                    nextWeather = SystemClock.elapsedRealtime() + weatherRetry;
-                    weatherRetry = Math.min(2 * 60_000L, weatherRetry * 2);
+                    long retryLimit = local && (!receivedLocalReading || lastReading == null) ? 10_000L : 120_000L;
+                    nextWeather = SystemClock.elapsedRealtime() + Math.min(weatherRetry, retryLimit);
+                    weatherRetry = Math.min(retryLimit, weatherRetry * 2);
                 }
                 showWeather();
             });
@@ -674,6 +695,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
             nextDays = 0;
         }
         if ((days == null || days.isCurrent()) && SystemClock.elapsedRealtime() < nextDays) return;
+        long connectionId = weatherConnectionId;
         daysLoading = true;
         network.execute(() -> {
             ForecastWeather.Outlook result;
@@ -687,6 +709,10 @@ public final class ClockActivity extends Activity implements SensorEventListener
             runOnUiThread(() -> {
                 if (isDestroyed()) return;
                 daysLoading = false;
+                if (weatherWifi == null || weatherConnectionId != connectionId) {
+                    updateWeather();
+                    return;
+                }
                 if (location.equals(preferences.getString("locationKey", ""))) {
                     days = fetched;
                     nextDays = SystemClock.elapsedRealtime() + (days == null ? 30_000L : FORECAST_INTERVAL);
@@ -719,7 +745,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
         if (days == null || !days.isCurrent() || !daysLocation.equals(preferences.getString("locationKey", ""))) {
             String status = locality.isEmpty() ? "Choose a locality in Weather settings."
                     : weatherWifi == null ? "Waiting for Wi-Fi."
-                    : SystemClock.elapsedRealtime() < weatherReadyAt ? "Weather sync starts two minutes after Wi-Fi connects."
+                    : SystemClock.elapsedRealtime() < weatherReadyAt ? "Waiting for a stable Wi-Fi connection…"
                     : daysLoading ? "Loading forecast…" : "Forecast unavailable.";
             weatherPanel.addView(textLabel(status));
             return;
@@ -751,7 +777,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
 
     private void updateForecast(String location, double latitude, double longitude, long now) {
         if (location.isEmpty() || forecastInFlight || now < nextForecast) return;
-        long connectionTime = weatherReadyAt;
+        long connectionId = weatherConnectionId;
         forecastInFlight = true;
         nextForecast = now + FORECAST_INTERVAL;
         network.execute(() -> {
@@ -766,7 +792,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
             runOnUiThread(() -> {
                 if (isDestroyed()) return;
                 forecastInFlight = false;
-                if (weatherWifi == null || weatherReadyAt != connectionTime || !location.equals(preferences.getString("locationKey", ""))) {
+                if (weatherWifi == null || weatherConnectionId != connectionId || !location.equals(preferences.getString("locationKey", ""))) {
                     nextForecast = 0;
                     return;
                 }
@@ -1259,6 +1285,8 @@ public final class ClockActivity extends Activity implements SensorEventListener
         LinearLayout card = settingsCard();
         toggle(card, "Keep screen awake", "keepAwake", true);
         card.addView(textLabel("While the clock is open"));
+        toggle(card, "Start Spotify after reboot", "startSpotifyAfterBoot", true);
+        card.addView(textLabel("Briefly opens Spotify for Connect, then returns to the clock"));
         toggle(card, "Double-tap to exit", "doubleTap", true);
         card.addView(textLabel("Double-tap the clock face"));
         panel.addView(card);

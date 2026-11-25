@@ -25,7 +25,7 @@ Open **Settings → Alarm** and turn on **Next alarm** to pick a time. A bell on
 1. Enable **Clock → Outside temperature**.
 2. Under **Weather**, enable **Use PanTech outdoor sensor**. Enter the console’s local IPv4 address and tap **Save station IP**. The default address is `10.0.1.173`. The Echo must be able to reach the console over Wi-Fi. The live outdoor reading has been tested with a PanTech WS3900-series station.
 3. Enter a four-digit Australian postcode, tap **Find locality**, and select your locality. This sets the forecast location. To use Bureau of Meteorology observations for temperature, turn off the PanTech switch and leave a locality selected.
-4. Allow two minutes after the app detects Wi-Fi for the first sync. A reconnection restarts the wait. While the clock is open, it normally checks the station every minute, BOM observations every 15 minutes and forecasts every two hours.
+4. Weather sync begins when Android confirms internet access over Wi-Fi, or after three seconds on a stable Wi-Fi connection. While waiting for the first PanTech reading, the clock retries after five seconds and caps the retry wait at ten seconds. While the clock is open, it normally checks the station every minute, BOM observations every 15 minutes and forecasts every two hours.
 
 Tap the temperature or the surrounding upper-left corner to see the rest of today followed by three full days. Today’s rainfall estimate counts only the remaining hours, with the current partial hour prorated. Rain chance is the highest hourly probability for each period. Each column gives the high and low in °C, expected conditions, rain chance and rainfall in millimetres. The panel closes after 30 seconds. Tap anywhere on the forecast or press Android Back to close it sooner. The station supplies current observations. Open-Meteo supplies the forecast.
 
@@ -40,7 +40,7 @@ Tap the temperature or the surrounding upper-left corner to see the rest of toda
 
 ## Spotify
 
-Install Spotify and sign in on the Echo. When Bedside Clock starts as the Home app, it connects to Spotify’s media browser service to load the player in the background. Android manages how long the process stays in memory. Tap the green Spotify icon beside Settings to open the player. Allow **Display over other apps** for Bedside Clock when prompted, then tap Spotify again. This allows the automatic return on LineageOS. **Just open Spotify** opens the player without automatic return. You can browse before starting a track. After playback has started, a pause or stop lasting five seconds returns you to the clock. Home also returns you immediately.
+Install Spotify and sign in on the Echo. With **Settings → Device → Start Spotify after reboot** enabled, the clock briefly opens Spotify once Wi-Fi is available, then returns to the clock after about ten seconds. This prepares the Echo for Spotify Connect. Tap the green Spotify icon beside Settings to open the player. Allow **Display over other apps** for Bedside Clock when prompted, then tap Spotify again. This allows the automatic return on LineageOS. **Just open Spotify** opens the player without automatic return. You can browse before starting a track. After playback has started, a pause or stop lasting five seconds returns you to the clock. Home also returns you immediately.
 
 On Spotify versions that restrict access to the media session, the clock uses local music playback activity. Audio from another app can affect the return timing, and playback on a different Spotify Connect device may not register as local music.
 
