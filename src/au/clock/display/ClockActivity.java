@@ -125,6 +125,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
     private TextView period;
     private TextView date;
     private TextView temperature;
+    private SpotifyLink spotify;
     private ImageButton settingsButton;
     private ImageButton alarmBell;
     private AlertDialog ringingDialog;
@@ -170,6 +171,8 @@ public final class ClockActivity extends Activity implements SensorEventListener
         sensors = getSystemService(SensorManager.class);
         lightSensor = sensors == null ? null : sensors.getDefaultSensor(Sensor.TYPE_LIGHT);
         getSystemService(ConnectivityManager.class).registerDefaultNetworkCallback(wifiChanges, handler);
+        spotify = new SpotifyLink(this);
+        spotify.connect();
         buildClock();
         showClock();
         DailyAlarm.schedule(this);
@@ -230,6 +233,21 @@ public final class ClockActivity extends Activity implements SensorEventListener
         bottom.setMargins(0, 0, dp(12), dp(10));
         root.addView(settingsButton, bottom);
         settingsButton.setOnClickListener(view -> openSettings());
+
+        try {
+            ImageButton player = new ImageButton(this);
+            player.setImageDrawable(getPackageManager().getApplicationIcon(SpotifyLink.PACKAGE));
+            player.setContentDescription("Open Spotify");
+            player.setBackgroundColor(Color.TRANSPARENT);
+            player.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+            player.setPadding(dp(7), dp(7), dp(7), dp(7));
+            FrameLayout.LayoutParams slot = new FrameLayout.LayoutParams(dp(44), dp(44), Gravity.BOTTOM | Gravity.RIGHT);
+            slot.setMargins(0, 0, dp(60), dp(10));
+            root.addView(player, slot);
+            player.setOnClickListener(view -> spotify.open());
+        } catch (android.content.pm.PackageManager.NameNotFoundException absent) {
+            // Devices without Spotify display just the settings gear.
+        }
 
         GestureDetector gestures = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override public boolean onDown(MotionEvent event) { return true; }
@@ -494,6 +512,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
 
     @Override protected void onResume() {
         super.onResume();
+        spotify.stopWatching();
         if (lightSensor != null) sensors.registerListener(this, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
         if (lastReading == null) nextWeather = 0;
         if (forecast == null) nextForecast = 0;
@@ -511,6 +530,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
         getSystemService(ConnectivityManager.class).unregisterNetworkCallback(wifiChanges);
         clearWeatherWifi();
         handler.removeCallbacks(dismissForecast);
+        spotify.close();
         network.shutdownNow();
         super.onDestroy();
     }

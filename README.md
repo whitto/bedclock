@@ -1,6 +1,6 @@
 # Bedside Clock
 
-Bedside Clock turns an Echo Show 5 running LineageOS into a landscape bedside display. Version 4.5 includes digital and flip faces, adjustable night brightness, a one-shot alarm, local weather station readings and a forecast for the rest of today and the next three days. It can serve as Android’s Home app and includes a separate dim clock screensaver.
+Bedside Clock turns an Echo Show 5 running LineageOS into a landscape bedside display. Version 4.6 includes digital and flip faces, adjustable night brightness, a one-shot alarm, local weather station readings and a forecast for the rest of today and the next three days. It can serve as Android’s Home app and includes a separate dim clock screensaver.
 
 See the [user manual](USER_MANUAL.md) for setup, daily use and troubleshooting.
 

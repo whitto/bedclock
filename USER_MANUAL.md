@@ -37,3 +37,9 @@ Tap the temperature or the surrounding upper-left corner to see the rest of toda
 | The clock shows —°C | Allow the Wi-Fi startup delay. Check the station IP, the PanTech switch and whether the station’s Live Data page is reachable on the same network. For BOM, check that a locality is selected. |
 | Temperature works but the forecast is missing | Check the saved locality and internet access. Local PanTech readings can work without internet. |
 | Clock shows the wrong time | Check the time and time zone in Android Settings and the clock’s 12/24-hour preference. |
+
+## Spotify
+
+Install Spotify and sign in on the Echo. When Bedside Clock starts as the Home app, it connects to Spotify’s media browser service to load the player in the background. Android manages how long the process stays in memory. Tap the green Spotify icon beside Settings to open the player. You can browse before starting a track. After playback has started, a pause or stop lasting five seconds returns you to the clock. Home also returns you immediately.
+
+On Spotify versions that restrict access to the media session, the clock uses local music playback activity. Audio from another app can affect the return timing, and playback on a different Spotify Connect device may not register as local music.
