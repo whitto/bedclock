@@ -401,9 +401,10 @@ public final class ClockActivity extends Activity implements SensorEventListener
 
     private void renderClock() {
         Date now = new Date();
-        boolean redAtNight = preferences.getBoolean("redAtNight", false) && !isDaytime();
-        int digitsColor = redAtNight ? 0xffff4545 : clockForeground;
-        int periodColor = redAtNight ? 0xffff4545 : clockSecondary;
+        boolean daytime = isDaytime();
+        int digitsColor = clockColour(daytime, clockForeground);
+        int periodColor = preferences.contains("dayClockColour") || (!daytime && hasNightColour())
+                ? digitsColor : clockSecondary;
         if (time.getCurrentTextColor() != digitsColor) time.setTextColor(digitsColor);
         if (period.getCurrentTextColor() != periodColor) period.setTextColor(periodColor);
         boolean use24Hours = is24HourClock();
@@ -470,6 +471,17 @@ public final class ClockActivity extends Activity implements SensorEventListener
         return day <= night ? minute >= day && minute < night : minute >= day || minute < night;
     }
 
+    private boolean hasNightColour() {
+        return preferences.contains("nightClockColour") || preferences.getBoolean("redAtNight", false);
+    }
+
+    private int clockColour(boolean daytime, int defaultColour) {
+        int day = preferences.getInt("dayClockColour", defaultColour);
+        if (daytime) return day;
+        int fallback = preferences.getBoolean("redAtNight", false) ? 0xffff4545 : day;
+        return preferences.getInt("nightClockColour", fallback);
+    }
+
     private void updateBrightness() {
         int mode = preferences.getInt("brightnessMode", 0);
         int level = scheduleLevel();
@@ -524,6 +536,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
         attributes.screenBrightness = level / 100f;
         getWindow().setAttributes(attributes);
         appliedBrightness = level;
+        bedsideLights.setDisplayLevel(level);
     }
 
     @Override public void onSensorChanged(SensorEvent event) {
@@ -974,6 +987,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
         color.setOnClickListener(view -> chooseColor());
         showCustomColor.run();
         choice(details, "Position", "position", new String[] {"Center", "Lower center", "Lower left"}, 0);
+        addClockColourButtons(details);
         Button visible = settingsAction("Show on clock", 0xff3b3d40);
         LinearLayout visibleOptions = column();
         visibleOptions.setVisibility(View.GONE);
@@ -1026,6 +1040,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
             int solid = preferences.getInt("solid", 0xff18232d);
             boolean light = background == 2 && Color.luminance(solid) > .179;
             int ink = light ? 0xff151421 : 0xfff6f3ff;
+            int digitsColour = clockColour(isDaytime(), ink);
             preview.setBackground(clockBackground(background, solid));
             outside.setTextColor(ink);
             outside.setText(temperature.getText());
@@ -1037,7 +1052,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
             String reading = DateFormat.format(twentyFour ? "HH:mm" : "h:mm", now).toString();
             String periodLabel = twentyFour ? "" : DateFormat.format("aa", now).toString();
             suffix.setText(periodLabel);
-            suffix.setTextColor(ink);
+            suffix.setTextColor(digitsColour);
             suffix.setVisibility(twentyFour ? View.GONE : View.VISIBLE);
             float available = preview.getWidth() - dp(16)
                     - (twentyFour ? 0 : suffix.getPaint().measureText(periodLabel) + suffix.getPaddingLeft());
@@ -1050,12 +1065,12 @@ public final class ClockActivity extends Activity implements SensorEventListener
             digital.setVisibility(flip ? View.GONE : View.VISIBLE);
             flips.setVisibility(flip ? View.VISIBLE : View.GONE);
             if (flip) {
-                flips.setFace(font, ink, light);
+                flips.setFace(font, digitsColour, light);
                 flips.setDigitSize(size);
                 flips.setReading(reading);
             } else {
                 digital.setTypeface(font);
-                digital.setTextColor(ink);
+                digital.setTextColor(digitsColour);
                 digital.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, size);
                 digital.setText(reading);
             }
@@ -1104,8 +1119,7 @@ public final class ClockActivity extends Activity implements SensorEventListener
         Runnable refresh = () -> {
             int mode = preferences.getInt("brightnessMode", 0);
             boolean waking = preferences.getBoolean("wakeEnabled", false);
-            boolean red = preferences.getBoolean("redAtNight", false);
-            boolean scheduled = mode == 0 || (mode == 1 && lightSensor == null) || waking || red;
+            boolean scheduled = mode == 0 || (mode == 1 && lightSensor == null) || waking || hasNightColour();
             schedule.setVisibility(scheduled || mode == 1 ? View.VISIBLE : View.GONE);
             dayStart.setVisibility(scheduled ? View.VISIBLE : View.GONE);
             nightOptions.setVisibility(scheduled ? View.VISIBLE : View.GONE);
@@ -1142,7 +1156,6 @@ public final class ClockActivity extends Activity implements SensorEventListener
         levels.addView(schedule);
         levels.addView(manual);
         levels.addView(textLabel("Close settings to see the selected brightness. At 0%, tap the black screen to reopen brightness settings."));
-        toggle(levels, "Red clock at night", "redAtNight", false, refresh);
         heading(wake, "Wake brightness");
         toggle(wake, "Gradually brighten", "wakeEnabled", false, refresh);
         scheduleRow(wakeTiming, "Start at", "wakeStart", 360);
@@ -1317,6 +1330,144 @@ public final class ClockActivity extends Activity implements SensorEventListener
             showSettingsPage(settingsTab);
         }));
         dialog.show();
+    }
+
+    private void addClockColourButtons(LinearLayout panel) {
+        panel.addView(textLabel("Digit colour"));
+        LinearLayout row = new LinearLayout(this);
+        int solid = preferences.getInt("solid", 0xff18232d);
+        boolean light = preferences.getInt("background", 0) == 2 && Color.luminance(solid) > .179f;
+        int automatic = light ? 0xff151421 : 0xfff6f3ff;
+        Button day = clockColourButton("Day", true, automatic);
+        Button night = clockColourButton("Night", false, automatic);
+        row.addView(day, new LinearLayout.LayoutParams(-2, dp(36)));
+        LinearLayout.LayoutParams nightSlot = new LinearLayout.LayoutParams(-2, dp(36));
+        nightSlot.setMarginStart(dp(6));
+        row.addView(night, nightSlot);
+        LinearLayout.LayoutParams colours = new LinearLayout.LayoutParams(-1, -2);
+        colours.bottomMargin = dp(10);
+        panel.addView(row, colours);
+    }
+
+    private Button clockColourButton(String title, boolean daytime, int automatic) {
+        Button button = settingsAction(title, 0xff3b3d40);
+        button.setTextSize(13);
+        button.setSingleLine();
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setPadding(dp(7), 0, dp(7), 0);
+        int colour = clockColour(daytime, automatic);
+        GradientDrawable swatch = rounded(colour, 4);
+        swatch.setStroke(dp(1), SETTINGS_SECONDARY);
+        swatch.setBounds(0, 0, dp(15), dp(15));
+        button.setCompoundDrawablePadding(dp(4));
+        button.setCompoundDrawablesRelative(swatch, null, null, null);
+        button.setContentDescription(title + " digit colour");
+        button.setOnClickListener(view -> chooseClockColour(daytime, automatic));
+        return button;
+    }
+
+    private void chooseClockColour(boolean daytime, int automatic) {
+        String[] names = {"White", "Amber", "Red", "Green", "Blue"};
+        int[] colours = {Color.WHITE, 0xffffc15b, 0xffff524b, 0xff85dfa0, 0xff84bfff};
+        int[] selected = {clockColour(true, automatic), clockColour(false, automatic)};
+        boolean[] changed = new boolean[2];
+        LinearLayout options = column();
+        options.setPadding(dp(14), dp(8), dp(14), dp(8));
+        options.setBackgroundColor(SETTINGS_BACKGROUND);
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title = textLabel("Digit colour");
+        title.setTextSize(20);
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        Button[] modes = {settingsAction("Day", SETTINGS_BORDER), settingsAction("Night", SETTINGS_BORDER)};
+        for (Button button : modes) header.addView(button);
+        options.addView(header);
+
+        TextView preview = text(54);
+        preview.setGravity(Gravity.CENTER);
+        preview.setBackground(rounded(Color.BLACK, 8));
+        preview.setTypeface(clockTypeface(preferences.getInt("font", 0)));
+        LinearLayout.LayoutParams previewSpace = new LinearLayout.LayoutParams(-1, dp(78));
+        previewSpace.setMargins(0, dp(8), 0, dp(8));
+        options.addView(preview, previewSpace);
+
+        LinearLayout palette = new LinearLayout(this);
+        options.addView(palette);
+        LinearLayout[] tiles = new LinearLayout[names.length];
+        TextView[] dots = new TextView[names.length];
+        for (int i = 0; i < names.length; i++) {
+            LinearLayout tile = column();
+            tiles[i] = tile;
+            tile.setGravity(Gravity.CENTER);
+            tile.setFocusable(true);
+            tile.setContentDescription(names[i]);
+            TextView dot = text(16);
+            dots[i] = dot;
+            dot.setGravity(Gravity.CENTER);
+            dot.setTextColor(Color.BLACK);
+            dot.setBackground(rounded(colours[i], 14));
+            tile.addView(dot, new LinearLayout.LayoutParams(dp(26), dp(26)));
+            TextView label = textLabel(names[i]);
+            label.setGravity(Gravity.CENTER);
+            tile.addView(label);
+            LinearLayout.LayoutParams slot = new LinearLayout.LayoutParams(0, dp(62), 1);
+            if (i > 0) slot.setMarginStart(dp(5));
+            palette.addView(tile, slot);
+        }
+
+        class Picker {
+            int mode = daytime ? 0 : 1;
+            void render() {
+                preview.setText(mode == 0 ? "10:08 AM" : "10:08 PM");
+                preview.setTextColor(selected[mode]);
+                for (int i = 0; i < modes.length; i++) {
+                    modes[i].setSelected(i == mode);
+                    modes[i].setTextColor(i == mode ? Color.BLACK : SETTINGS_TEXT);
+                    modes[i].setBackground(settingsBackground(i == mode ? SETTINGS_TEXT : SETTINGS_BORDER));
+                }
+                for (int i = 0; i < tiles.length; i++) {
+                    boolean active = selected[mode] == colours[i];
+                    GradientDrawable fill = rounded(0xff353638, 8);
+                    if (active) fill.setStroke(dp(1), SETTINGS_TEXT);
+                    tiles[i].setBackground(fill);
+                    tiles[i].setSelected(active);
+                    dots[i].setText(active ? "✓" : "");
+                }
+            }
+        }
+        Picker picker = new Picker();
+        for (int i = 0; i < modes.length; i++) {
+            int mode = i;
+            modes[i].setOnClickListener(view -> {
+                picker.mode = mode;
+                picker.render();
+            });
+        }
+        for (int i = 0; i < tiles.length; i++) {
+            int colour = colours[i];
+            tiles[i].setOnClickListener(view -> {
+                selected[picker.mode] = colour;
+                changed[picker.mode] = true;
+                picker.render();
+            });
+        }
+        picker.render();
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(options);
+        new AlertDialog.Builder(this).setView(scroll)
+                .setPositiveButton("Apply", (dialog, which) -> {
+                    SharedPreferences.Editor edit = preferences.edit();
+                    if (changed[0]) edit.putInt("dayClockColour", selected[0]);
+                    if (changed[1] || (changed[0] && !hasNightColour())) {
+                        edit.putInt("nightClockColour", selected[1]);
+                    }
+                    edit.apply();
+                    showSettingsPage(settingsTab);
+                })
+                .setNegativeButton("Cancel", null).show();
     }
 
     private void heading(LinearLayout panel, String title) {

@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.graphics.Color;
+import android.os.Handler;
+import android.os.Looper;
 import android.graphics.Typeface;
 import android.graphics.drawable.ClipDrawable;
 import android.graphics.drawable.GradientDrawable;
@@ -13,6 +15,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.content.SharedPreferences;
 import android.text.InputType;
+import android.widget.FrameLayout;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -31,12 +34,30 @@ import java.util.concurrent.Executors;
 
 final class BedsideLights {
     private static final int AMBER = 0xffffbd47;
-    private static final int CARD = 0xff382b24;
-    private static final int MUTED = 0xffc2b5ad;
+    private static final int CARD = 0xff303133;
+    private static final int MUTED = 0xffbebfc1;
     private static final String[] NAMES = {"Lamp Craig", "Lamp Kristen"};
     private final Activity activity;
     private final SharedPreferences preferences;
+    private static final long REFRESH_MS = 2000;
     private final ExecutorService requests = Executors.newSingleThreadExecutor();
+    private final ExecutorService reads = Executors.newSingleThreadExecutor();
+    private final Handler ui = new Handler(Looper.getMainLooper());
+
+    private Dialog lampsDialog;
+    private View dimCover;
+    private int displayLevel = -1;
+
+    void setDisplayLevel(int level) {
+        displayLevel = level;
+        if (lampsDialog == null || level < 0) return;
+        WindowManager.LayoutParams attributes = lampsDialog.getWindow().getAttributes();
+        attributes.screenBrightness = level / 100f;
+        lampsDialog.getWindow().setAttributes(attributes);
+        dimCover.setVisibility(level < 5 ? View.VISIBLE : View.GONE);
+        if (level < 5) dimCover.setBackgroundColor(Color.argb(255 - level * 51, 0, 0, 0));
+        dimCover.setClickable(level == 0);
+    }
 
     BedsideLights(Activity activity) {
         this.activity = activity;
@@ -45,6 +66,8 @@ final class BedsideLights {
 
     void close() {
         requests.shutdownNow();
+        reads.shutdownNow();
+        ui.removeCallbacksAndMessages(null);
     }
 
     private int dp(int value) {
@@ -75,7 +98,7 @@ final class BedsideLights {
     private TextView action(String title, String description, Runnable perform) {
         TextView control = label(title, 24, Color.WHITE);
         control.setGravity(Gravity.CENTER);
-        control.setBackground(rounded(0xff564943, 28));
+        control.setBackground(rounded(0xff494a4c, 28));
         control.setContentDescription(description);
         control.setFocusable(true);
         control.setOnClickListener(view -> perform.run());
@@ -85,7 +108,7 @@ final class BedsideLights {
     void open() {
         Dialog dialog = new Dialog(activity, android.R.style.Theme_Material_NoActionBar);
         LinearLayout screen = column();
-        screen.setBackgroundColor(0xff211914);
+        screen.setBackgroundColor(Color.BLACK);
         screen.setPadding(dp(18), dp(14), dp(18), dp(18));
         LinearLayout header = new LinearLayout(activity);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -107,38 +130,33 @@ final class BedsideLights {
         LinearLayout.LayoutParams cards = new LinearLayout.LayoutParams(-1, 0, 1);
         cards.topMargin = dp(16);
         screen.addView(panel, cards);
-        dialog.setContentView(screen);
+        FrameLayout content = new FrameLayout(activity);
+        content.addView(screen);
+        lampsDialog = dialog;
+        dimCover = new View(activity);
+        dimCover.setOnClickListener(view -> dialog.dismiss());
+        content.addView(dimCover);
+        dialog.setContentView(content);
+        setDisplayLevel(displayLevel);
+        LampPanel lamps = preferences.getString("token", "").isEmpty() ? null : new LampPanel(dialog, panel);
+        dialog.setOnDismissListener(ignored -> {
+            if (lamps != null) ui.removeCallbacks(lamps.refreshTask);
+            if (lampsDialog == dialog) {
+                lampsDialog = null;
+                dimCover = null;
+            }
+        });
         dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         dialog.getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                         | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         dialog.show();
         dialog.getWindow().setLayout(-1, -1);
-        TextView status = label("Loading lamps…", 16, MUTED);
-        panel.addView(status);
-        if (preferences.getString("token", "").isEmpty()) {
-            status.setText("Open Connection to link Home Assistant.");
+        if (lamps == null) {
+            panel.addView(label("Open Connection to link Home Assistant.", 16, MUTED));
             return;
         }
-        requests.execute(() -> {
-            try {
-                JSONArray states = (JSONArray) request("/api/states", null);
-                activity.runOnUiThread(() -> {
-                    if (!dialog.isShowing()) return;
-                    panel.removeAllViews();
-                    for (String name : NAMES) {
-                        try {
-                            addLamp(panel, name, findLamp(states, name));
-                        } catch (Exception error) {
-                            TextView missing = label(name + " is unavailable.", 17, MUTED);
-                            panel.addView(missing);
-                        }
-                    }
-                });
-            } catch (Exception error) {
-                activity.runOnUiThread(() -> status.setText("Home Assistant connection failed. Check Connection."));
-            }
-        });
+        lamps.refresh();
     }
 
     private void connection() {
@@ -175,118 +193,219 @@ final class BedsideLights {
             if (match != null) throw new IllegalStateException("Duplicate light name");
             match = entity;
         }
-        if (match == null || !("on".equals(match.optString("state")) || "off".equals(match.optString("state")))) {
+        if (match == null) {
             throw new IllegalStateException("Light unavailable");
         }
         return match;
     }
 
-    private void addLamp(LinearLayout panel, String name, JSONObject entity) throws Exception {
-        String id = entity.getString("entity_id");
-        JSONObject attributes = entity.getJSONObject("attributes");
-        boolean[] on = {"on".equals(entity.getString("state"))};
-        LinearLayout card = column();
-        card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setPadding(dp(16), dp(14), dp(16), dp(14));
-        card.setBackground(rounded(CARD, 24));
-        LinearLayout.LayoutParams tile = new LinearLayout.LayoutParams(0, -1, 1);
-        if (panel.getChildCount() > 0) tile.setMarginStart(dp(12));
-        panel.addView(card, tile);
-        LinearLayout heading = new LinearLayout(activity);
-        heading.setGravity(Gravity.CENTER_VERTICAL);
-        TextView bulb = label("💡", 25, AMBER);
-        bulb.setAlpha(on[0] ? 1f : 0.35f);
-        heading.addView(bulb, new LinearLayout.LayoutParams(dp(42), -2));
-        LinearLayout labels = column();
-        TextView title = label(name, 23, Color.WHITE);
-        title.setTypeface(null, Typeface.BOLD);
-        labels.addView(title);
-        TextView stateLabel = label("", 17, MUTED);
-        labels.addView(stateLabel);
-        heading.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView toggle = action("", name, () -> {});
-        toggle.setForeground(activity.getDrawable(R.drawable.bedside_power).mutate());
-        toggle.setForegroundGravity(Gravity.CENTER);
-        heading.addView(toggle, new LinearLayout.LayoutParams(dp(56), dp(56)));
-        card.addView(heading, new LinearLayout.LayoutParams(-1, -2));
+    private final class LampPanel {
+        private final Dialog dialog;
+        private final Lamp[] lamps = new Lamp[NAMES.length];
+        private final Runnable refreshTask = this::refresh;
 
-        TextView feedback = label("", 17, Color.WHITE);
-        feedback.setPadding(0, dp(12), 0, 0);
-        SeekBar dimmer = new SeekBar(activity);
-        dimmer.setContentDescription(name + " brightness");
-        dimmer.setThumb(null);
-        dimmer.setPadding(0, 0, 0, 0);
-        LayerDrawable track = new LayerDrawable(new android.graphics.drawable.Drawable[] {
-                rounded(0xff594940, 20),
-                new ClipDrawable(rounded(AMBER, 20), Gravity.LEFT, ClipDrawable.HORIZONTAL)
-        });
-        track.setId(0, android.R.id.background);
-        track.setId(1, android.R.id.progress);
-        dimmer.setProgressDrawable(track);
-        dimmer.setProgress(on[0] ? Math.round(attributes.optInt("brightness", 255) * 100f / 255) : 0);
-        renderState(name, on[0], toggle, stateLabel, bulb);
-        feedback.setText(dimmer.getProgress() + "%");
+        LampPanel(Dialog dialog, LinearLayout panel) {
+            this.dialog = dialog;
+            for (int index = 0; index < lamps.length; index++) {
+                lamps[index] = new Lamp(panel, NAMES[index]);
+            }
+        }
+
+        void refresh() {
+            if (!dialog.isShowing() || reads.isShutdown()) return;
+            String[] ids = new String[lamps.length];
+            int[] revisions = new int[lamps.length];
+            for (int index = 0; index < lamps.length; index++) {
+                Lamp lamp = lamps[index];
+                ids[index] = lamp.id;
+                revisions[index] = lamp.revision;
+            }
+            reads.execute(() -> {
+                LampState[] states = new LampState[lamps.length];
+                JSONArray all = null;
+                boolean discoveryTried = false;
+                for (int index = 0; index < states.length; index++) {
+                    try {
+                        if (ids[index] != null) {
+                            states[index] = readLamp(ids[index]);
+                        } else {
+                            if (!discoveryTried) {
+                                discoveryTried = true;
+                                all = (JSONArray) request("/api/states", null);
+                            }
+                            if (all != null) states[index] = decodeLamp(findLamp(all, NAMES[index]));
+                        }
+                    } catch (Exception error) {
+                        android.util.Log.d("BedsideClock", "Could not refresh " + NAMES[index]);
+                    }
+                }
+                ui.post(() -> {
+                    if (!dialog.isShowing() || reads.isShutdown()) return;
+                    for (int index = 0; index < lamps.length; index++) {
+                        Lamp lamp = lamps[index];
+                        if (!lamp.busy && !lamp.dragging && lamp.revision == revisions[index]) {
+                            lamp.apply(states[index]);
+                        }
+                    }
+                    ui.postDelayed(refreshTask, REFRESH_MS);
+                });
+            });
+        }
+
+        private final class Lamp {
+            final String name;
+            final TextView bulb;
+            final TextView power;
+            final TextView status;
+            final TextView feedback;
+            final TextView error;
+            final SeekBar dimmer;
+            String id;
+            LampState state;
+            int revision;
+            boolean busy;
+            boolean dragging;
+
+            Lamp(LinearLayout panel, String name) {
+                this.name = name;
+                LinearLayout card = column();
+                card.setGravity(Gravity.CENTER_VERTICAL);
+                card.setPadding(dp(16), dp(14), dp(16), dp(14));
+                card.setBackground(rounded(CARD, 24));
+                LinearLayout.LayoutParams tile = new LinearLayout.LayoutParams(0, -1, 1);
+                if (panel.getChildCount() > 0) tile.setMarginStart(dp(12));
+                panel.addView(card, tile);
+                LinearLayout heading = new LinearLayout(activity);
+                heading.setGravity(Gravity.CENTER_VERTICAL);
+                bulb = label("💡", 25, AMBER);
+                heading.addView(bulb, new LinearLayout.LayoutParams(dp(42), -2));
+                LinearLayout labels = column();
+                TextView title = label(name, 23, Color.WHITE);
+                title.setTypeface(null, Typeface.BOLD);
+                labels.addView(title);
+                status = label("", 17, MUTED);
+                labels.addView(status);
+                heading.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
+                power = action("", name, () -> {
+                    if (state != null && state.available) change(!state.on, -1);
+                });
+                power.setForeground(activity.getDrawable(R.drawable.bedside_power).mutate());
+                power.setForegroundGravity(Gravity.CENTER);
+                heading.addView(power, new LinearLayout.LayoutParams(dp(56), dp(56)));
+                card.addView(heading, new LinearLayout.LayoutParams(-1, -2));
+
+                feedback = label("", 17, Color.WHITE);
+                feedback.setPadding(0, dp(12), 0, 0);
+                card.addView(feedback);
+                dimmer = new SeekBar(activity);
+                dimmer.setContentDescription(name + " brightness");
+                dimmer.setThumb(null);
+                dimmer.setPadding(0, 0, 0, 0);
+                LayerDrawable track = new LayerDrawable(new android.graphics.drawable.Drawable[] {
+                        rounded(0xff535456, 20),
+                        new ClipDrawable(rounded(AMBER, 20), Gravity.LEFT, ClipDrawable.HORIZONTAL)
+                });
+                track.setId(0, android.R.id.background);
+                track.setId(1, android.R.id.progress);
+                dimmer.setProgressDrawable(track);
+                card.addView(dimmer, new LinearLayout.LayoutParams(-1, dp(44)));
+                error = label("", 14, MUTED);
+                error.setVisibility(View.GONE);
+                card.addView(error);
+
+                dimmer.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                    @Override public void onProgressChanged(SeekBar bar, int value, boolean user) {
+                        if (!user) return;
+                        feedback.setText(value + "%");
+                        if (!dragging) change(value > 0, value);
+                    }
+                    @Override public void onStartTrackingTouch(SeekBar bar) {
+                        dragging = true;
+                        power.setEnabled(false);
+                    }
+                    @Override public void onStopTrackingTouch(SeekBar bar) {
+                        dragging = false;
+                        int value = bar.getProgress();
+                        change(value > 0, value);
+                    }
+                });
+                apply(null);
+                status.setText("Loading…");
+            }
+
+            void apply(LampState latest) {
+                state = latest;
+                if (latest != null) id = latest.id;
+                boolean available = latest != null && latest.available;
+                boolean on = available && latest.on;
+                boolean dimmable = latest != null ? latest.dimmable : dimmer.getVisibility() == View.VISIBLE;
+                status.setText(!available ? "Unavailable" : on ? "On" : "Off");
+                status.setTextColor(on ? AMBER : MUTED);
+                bulb.setAlpha(on ? 1f : 0.35f);
+                power.getForeground().setTint(on ? 0xff202122 : Color.WHITE);
+                power.setBackground(rounded(on ? 0xffffad1a : 0xff565759, 28));
+                power.setContentDescription(!available ? name + " unavailable" : (on ? "Turn off " : "Turn on ") + name);
+                power.setEnabled(available);
+                int level = available ? latest.level : -1;
+                dimmer.setProgress(Math.max(0, level));
+                feedback.setText(level < 0 ? "—" : level + "%");
+                dimmer.setEnabled(available && dimmable);
+                dimmer.setVisibility(dimmable ? View.VISIBLE : View.GONE);
+                feedback.setVisibility(dimmable ? View.VISIBLE : View.GONE);
+            }
+
+            void change(boolean turnOn, int brightness) {
+                if (busy || state == null || !state.available || requests.isShutdown()) return;
+                String entityId = id;
+                busy = true;
+                revision++;
+                power.setEnabled(false);
+                dimmer.setEnabled(false);
+                error.setVisibility(View.GONE);
+                status.setText("Updating…");
+                requests.execute(() -> {
+                    LampState latest = null;
+                    try {
+                        JSONObject data = new JSONObject().put("entity_id", entityId);
+                        if (turnOn && brightness > 0) data.put("brightness_pct", brightness);
+                        request("/api/services/light/" + (turnOn ? "turn_on" : "turn_off"), data);
+                        latest = LampState.confirm(() -> readLamp(entityId), turnOn, brightness);
+                    } catch (Exception failure) {
+                        if (!(failure instanceof InterruptedException)) {
+                            try { latest = readLamp(entityId); } catch (Exception ignored) {}
+                        }
+                    }
+                    LampState result = latest;
+                    ui.post(() -> {
+                        if (!dialog.isShowing() || requests.isShutdown()) return;
+                        busy = false;
+                        revision++;
+                        apply(result);
+                        error.setVisibility(result != null && result.matches(turnOn, brightness)
+                                ? View.GONE : View.VISIBLE);
+                        error.setText("Change not confirmed by Home Assistant.");
+                    });
+                });
+            }
+        }
+    }
+
+    private LampState readLamp(String id) throws Exception {
+        return decodeLamp((JSONObject) request("/api/states/" + id, null));
+    }
+
+    private LampState decodeLamp(JSONObject entity) throws Exception {
+        JSONObject attributes = entity.getJSONObject("attributes");
         JSONArray modes = attributes.optJSONArray("supported_color_modes");
-        boolean dimmable = attributes.has("brightness");
+        boolean dimmable = !attributes.isNull("brightness");
         if (modes != null) {
             for (int i = 0; i < modes.length(); i++) {
                 String mode = modes.optString(i);
                 dimmable |= !mode.isEmpty() && !"onoff".equals(mode) && !"unknown".equals(mode);
             }
         }
-        if (dimmable) {
-            card.addView(feedback);
-            card.addView(dimmer, new LinearLayout.LayoutParams(-1, dp(44)));
-        }
-        toggle.setOnClickListener(view -> changeLamp(id, name, on, !on[0], -1, toggle, stateLabel, bulb, dimmer, feedback));
-        dimmer.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar bar, int value, boolean user) {
-                if (user) feedback.setText(value + "%");
-            }
-            @Override public void onStartTrackingTouch(SeekBar bar) {}
-            @Override public void onStopTrackingTouch(SeekBar bar) {
-                int value = bar.getProgress();
-                changeLamp(id, name, on, value > 0, value, toggle, stateLabel, bulb, dimmer, feedback);
-            }
-        });
-    }
-
-    private void renderState(String name, boolean on, TextView power, TextView state, TextView bulb) {
-        state.setText(on ? "On" : "Off");
-        state.setTextColor(on ? AMBER : MUTED);
-        bulb.setAlpha(on ? 1f : 0.35f);
-        power.getForeground().setTint(on ? 0xff211914 : Color.WHITE);
-        power.setBackground(rounded(on ? 0xffffad1a : 0xff625851, 28));
-        power.setContentDescription((on ? "Turn off " : "Turn on ") + name);
-    }
-
-    private void changeLamp(String id, String name, boolean[] on, boolean enable, int brightness,
-                            TextView toggle, TextView stateLabel, TextView bulb, SeekBar dimmer, TextView feedback) {
-        toggle.setEnabled(false);
-        dimmer.setEnabled(false);
-        requests.execute(() -> {
-            try {
-                JSONObject data = new JSONObject().put("entity_id", id);
-                if (enable && brightness > 0) data.put("brightness_pct", brightness);
-                request("/api/services/light/" + (enable ? "turn_on" : "turn_off"), data);
-                JSONObject state = (JSONObject) request("/api/states/" + id, null);
-                activity.runOnUiThread(() -> {
-                    on[0] = "on".equals(state.optString("state"));
-                    renderState(name, on[0], toggle, stateLabel, bulb);
-                    JSONObject values = state.optJSONObject("attributes");
-                    int level = on[0] && values != null ? Math.round(values.optInt("brightness", 255) * 100f / 255) : 0;
-                    dimmer.setProgress(level);
-                    feedback.setText(level + "%");
-                });
-            } catch (Exception error) {
-                activity.runOnUiThread(() -> feedback.setText("Could not confirm the change."));
-            } finally {
-                activity.runOnUiThread(() -> {
-                    toggle.setEnabled(true);
-                    dimmer.setEnabled(true);
-                });
-            }
-        });
+        return new LampState(entity.getString("entity_id"), entity.getString("state"),
+                attributes.optInt("brightness", -1), dimmable);
     }
 
     private Object request(String path, JSONObject data) throws Exception {
@@ -295,6 +414,7 @@ final class BedsideLights {
         connection.setConnectTimeout(5000);
         connection.setReadTimeout(7000);
         connection.setInstanceFollowRedirects(false);
+        connection.setUseCaches(false);
         connection.setRequestProperty("Authorization", "Bearer " + preferences.getString("token", ""));
         try {
             if (data != null) {

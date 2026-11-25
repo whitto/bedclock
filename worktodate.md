@@ -1,5 +1,12 @@
 # Bedside Clock work to date
 
+## 5.0.8
+
+- Choose from White, Amber, Red, Green and Blue for day and night digits, with a live preview.
+- Bedside lamps uses grey controls on black and follows the clock’s brightness, including its overnight dimming and wake ramp.
+- Lamp controls refresh power and brightness while open and check the reported state after a change.
+- Installed and checked the picker and bedside lamps screen on a second-generation Echo Show 5.
+
 ## Current release
 
 Version **5.0.4** (Android version code **36**) uses application ID `au.clock.display`.
